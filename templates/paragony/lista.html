@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+
+{% block title %}Lista Paragonów{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>Lista Paragonów</h1>
+        <a href="/paragony/dodaj" class="btn btn-primary">
+            <i class="fas fa-plus"></i> Dodaj Paragon
+        </a>
+    </div>
+
+    {% if paragony %}
+    <div class="table-responsive">
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>Data Dodania</th>
+                    <th>Status</th>
+                    <th>Liczba Produktów</th>
+                    <th>Akcje</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for paragon in paragony %}
+                <tr>
+                    <td>{{ paragon.data_wyslania.strftime('%Y-%m-%d %H:%M') }}</td>
+                    <td>
+                        <span class="badge {% if paragon.status == 'PRZETWORZONY_OK' %}bg-success
+                                         {% elif paragon.status == 'PRZETWARZANIE' %}bg-warning
+                                         {% elif paragon.status == 'BLAD' %}bg-danger
+                                         {% else %}bg-secondary{% endif %}">
+                            {{ paragon.status }}
+                        </span>
+                    </td>
+                    <td>{{ paragon.liczba_produktow|default(0) }}</td>
+                    <td>
+                        <div class="btn-group">
+                            {% if paragon.status == 'PRZETWORZONY_OK' %}
+                            <a href="/paragony/{{ paragon.id }}/import" class="btn btn-sm btn-success">
+                                <i class="fas fa-file-import"></i> Importuj
+                            </a>
+                            {% endif %}
+                            <a href="/paragony/{{ paragon.id }}/podglad" class="btn btn-sm btn-info">
+                                <i class="fas fa-eye"></i> Podgląd
+                            </a>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="alert alert-info">
+        <i class="fas fa-info-circle"></i> Brak paragonów w systemie. 
+        <a href="/paragony/dodaj" class="alert-link">Dodaj pierwszy paragon</a>.
+    </div>
+    {% endif %}
+</div>
+{% endblock %} 

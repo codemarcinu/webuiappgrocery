@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+
+{% block title %}Edytuj Produkt{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1>Edytuj Produkt</h1>
+    <form action="/spizarnia/edytuj/{{ produkt.id }}" method="post">
+        <div class="mb-3">
+            <label for="nazwa" class="form-label">Nazwa</label>
+            <input type="text" class="form-control" id="nazwa" name="nazwa" value="{{ produkt.nazwa }}" required>
+        </div>
+        <div class="mb-3">
+            <label for="kategoria" class="form-label">Kategoria</label>
+            <select class="form-control" id="kategoria" name="kategoria" required>
+                {% for kategoria in kategorie %}
+                <option value="{{ kategoria }}" {% if kategoria == produkt.kategoria %}selected{% endif %}>{{ kategoria }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="mb-3">
+            <label for="cena" class="form-label">Cena</label>
+            <input type="number" class="form-control" id="cena" name="cena" value="{{ produkt.cena }}" step="0.01" required>
+        </div>
+        <div class="mb-3">
+            <label for="data_waznosci" class="form-label">Data ważności</label>
+            <input type="date" class="form-control" id="data_waznosci" name="data_waznosci" value="{{ produkt.data_waznosci }}">
+        </div>
+        <button type="submit" class="btn btn-success">Zapisz zmiany</button>
+        <a href="/spizarnia" class="btn btn-secondary ms-2">Anuluj</a>
+    </form>
+</div>
+{% endblock %} 

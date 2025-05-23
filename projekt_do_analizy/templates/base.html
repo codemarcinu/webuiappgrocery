@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}{{ title }}{% endblock %} - Asystent Spiżarni</title>
+    
+    <!-- Material Design Web Components -->
+    <link href="https://unpkg.com/material-components-web@latest/dist/material-components-web.min.css" rel="stylesheet">
+    <script src="https://unpkg.com/material-components-web@latest/dist/material-components-web.min.js"></script>
+    
+    <!-- Material Icons -->
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    
+    <!-- Custom CSS -->
+    <link href="{{ url_for('static', path='/css/style.css') }}" rel="stylesheet">
+    
+    {% block extra_head %}{% endblock %}
+</head>
+<body class="mdc-typography">
+    <!-- Top App Bar -->
+    <header class="mdc-top-app-bar mdc-top-app-bar--fixed">
+        <div class="mdc-top-app-bar__row">
+            <section class="mdc-top-app-bar__section mdc-top-app-bar__section--align-start">
+                <button class="material-icons mdc-top-app-bar__navigation-icon mdc-icon-button">menu</button>
+                <span class="mdc-top-app-bar__title">Asystent Spiżarni</span>
+            </section>
+            <section class="mdc-top-app-bar__section mdc-top-app-bar__section--align-end">
+                <button class="material-icons mdc-top-app-bar__action-item mdc-icon-button" id="theme-toggle">dark_mode</button>
+            </section>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="mdc-top-app-bar--fixed-adjust">
+        <div class="mdc-layout-grid">
+            <div class="mdc-layout-grid__inner">
+                <div class="mdc-layout-grid__cell mdc-layout-grid__cell--span-12">
+                    {% block content %}{% endblock %}
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Navigation Drawer -->
+    <aside class="mdc-drawer mdc-drawer--modal">
+        <div class="mdc-drawer__content">
+            <nav class="mdc-list">
+                <a class="mdc-list-item mdc-list-item--activated" href="/" aria-current="page">
+                    <span class="material-icons mdc-list-item__graphic">home</span>
+                    <span class="mdc-list-item__text">Strona główna</span>
+                </a>
+                <a class="mdc-list-item" href="/spizarnia">
+                    <span class="material-icons mdc-list-item__graphic">kitchen</span>
+                    <span class="mdc-list-item__text">Spiżarnia</span>
+                </a>
+                <a class="mdc-list-item" href="/paragony">
+                    <span class="material-icons mdc-list-item__graphic">receipt</span>
+                    <span class="mdc-list-item__text">Paragony</span>
+                </a>
+                <a class="mdc-list-item" href="/sugestie">
+                    <span class="material-icons mdc-list-item__graphic">lightbulb</span>
+                    <span class="mdc-list-item__text">Sugestie</span>
+                </a>
+                <a class="mdc-list-item" href="/statystyki">
+                    <span class="material-icons mdc-list-item__graphic">bar_chart</span>
+                    <span class="mdc-list-item__text">Statystyki</span>
+                </a>
+                <a class="mdc-list-item" href="/admin/logi">
+                    <span class="material-icons mdc-list-item__graphic">bug_report</span>
+                    <span class="mdc-list-item__text">Logi</span>
+                </a>
+            </nav>
+        </div>
+    </aside>
+
+    <!-- Scrim -->
+    <div class="mdc-drawer-scrim"></div>
+
+    <!-- Snackbar for notifications -->
+    <div class="mdc-snackbar">
+        <div class="mdc-snackbar__surface" role="status" aria-relevant="additions">
+            <div class="mdc-snackbar__label" aria-atomic="false"></div>
+            <div class="mdc-snackbar__actions" aria-atomic="true">
+                <button type="button" class="mdc-button mdc-snackbar__action">
+                    <div class="mdc-button__ripple"></div>
+                    <span class="mdc-button__label">Zamknij</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Base JavaScript -->
+    <script src="{{ url_for('static', path='/js/base.js') }}"></script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html> 
