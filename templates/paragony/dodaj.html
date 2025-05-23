@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="mdc-layout-grid">
+    <div class="mdc-layout-grid__inner">
+        <div class="mdc-layout-grid__cell mdc-layout-grid__cell--span-12">
+            <div class="mdc-card">
+                <div class="mdc-card__primary">
+                    <h1 class="mdc-typography--headline4">Dodaj nowy paragon</h1>
+                    <h2 class="mdc-typography--subtitle1">Wybierz plik paragonu do analizy</h2>
+                </div>
+
+                <div class="mdc-card__content">
+                    <form id="upload-form" action="/paragony/wyslij_plik" method="post" enctype="multipart/form-data" class="form-container">
+                        <!-- File Upload -->
+                        <div class="mdc-layout-grid__inner">
+                            <div class="mdc-layout-grid__cell mdc-layout-grid__cell--span-12">
+                                <div class="mdc-text-field mdc-text-field--outlined mdc-text-field--with-trailing-icon" style="width: 100%;">
+                                    <input type="file" 
+                                           class="mdc-text-field__input" 
+                                           id="receipt-file" 
+                                           name="file" 
+                                           accept="image/*,.pdf"
+                                           required>
+                                    <span class="mdc-notched-outline">
+                                        <span class="mdc-notched-outline__leading"></span>
+                                        <span class="mdc-notched-outline__notch">
+                                            <span class="mdc-floating-label">Wybierz plik paragonu</span>
+                                        </span>
+                                        <span class="mdc-notched-outline__trailing"></span>
+                                    </span>
+                                    <i class="material-icons mdc-text-field__icon mdc-text-field__icon--trailing">upload_file</i>
+                                </div>
+                            </div>
+
+                            <!-- Preview Container -->
+                            <div class="mdc-layout-grid__cell mdc-layout-grid__cell--span-12">
+                                <div class="receipt-preview-container" style="margin-top: 1rem;">
+                                    <!-- Preview will be inserted here by JavaScript -->
+                                </div>
+                            </div>
+
+                            <!-- Progress Indicators -->
+                            <div class="mdc-layout-grid__cell mdc-layout-grid__cell--span-12">
+                                <div class="progress-container" style="display: none;">
+                                    <div class="mdc-linear-progress">
+                                        <div class="mdc-linear-progress__buffering-dots"></div>
+                                        <div class="mdc-linear-progress__buffer"></div>
+                                        <div class="mdc-linear-progress__bar mdc-linear-progress__primary-bar">
+                                            <span class="mdc-linear-progress__bar-inner"></span>
+                                        </div>
+                                        <div class="mdc-linear-progress__bar mdc-linear-progress__secondary-bar">
+                                            <span class="mdc-linear-progress__bar-inner"></span>
+                                        </div>
+                                    </div>
+                                    <p class="mdc-typography--body2 progress-status" style="margin-top: 0.5rem;">
+                                        Przygotowywanie podglądu...
+                                    </p>
+                                </div>
+                            </div>
+
+                            <!-- Submit Button -->
+                            <div class="mdc-layout-grid__cell mdc-layout-grid__cell--span-12" style="text-align: center; margin-top: 1rem;">
+                                <button type="submit" class="mdc-button mdc-button--raised">
+                                    <div class="mdc-button__ripple"></div>
+                                    <span class="mdc-button__label">Wyślij paragon</span>
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const form = document.getElementById('upload-form');
+    const progressContainer = document.querySelector('.progress-container');
+    const progressBar = document.querySelector('.mdc-linear-progress');
+    const progressStatus = document.querySelector('.progress-status');
+    const submitButton = form.querySelector('button[type="submit"]');
+
+    // Initialize progress bar
+    const linearProgress = mdc.linearProgress.MDCLinearProgress.attachTo(progressBar);
+    linearProgress.determinate = false;
+
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        // Show progress
+        progressContainer.style.display = 'block';
+        linearProgress.determinate = false;
+        submitButton.disabled = true;
+        
+        try {
+            const formData = new FormData(form);
+            const response = await fetch(form.action, {
+                method: 'POST',
+                body: formData
+            });
+            
+            if (!response.ok) {
+                throw new Error('Błąd podczas wysyłania pliku');
+            }
+            
+            const data = await response.json();
+            
+            // Update progress
+            linearProgress.determinate = true;
+            linearProgress.progress = 1;
+            progressStatus.textContent = 'Plik wysłany pomyślnie!';
+            
+            // Redirect to preview page
+            window.location.href = `/paragony/podglad/${data.id_sesji}`;
+            
+        } catch (error) {
+            console.error('Error:', error);
+            progressStatus.textContent = 'Wystąpił błąd podczas wysyłania pliku';
+            submitButton.disabled = false;
+            window.showNotification('Wystąpił błąd podczas wysyłania pliku', 5000);
+        }
+    });
+});
+</script>
+{% endblock %} 

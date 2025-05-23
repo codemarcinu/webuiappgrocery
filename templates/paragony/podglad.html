@@ -1,0 +1,154 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="mdc-layout-grid">
+    <div class="mdc-layout-grid__inner">
+        <div class="mdc-layout-grid__cell mdc-layout-grid__cell--span-12">
+            <div class="mdc-card">
+                <div class="mdc-card__primary">
+                    <h1 class="mdc-typography--headline4">Podgląd paragonu</h1>
+                    <h2 class="mdc-typography--subtitle1">Sprawdź poprawność paragonu przed przetworzeniem</h2>
+                </div>
+
+                <div class="mdc-card__content">
+                    <!-- Receipt Preview -->
+                    <div class="mdc-layout-grid__inner">
+                        <div class="mdc-layout-grid__cell mdc-layout-grid__cell--span-12">
+                            <div class="receipt-preview-container" style="text-align: center;">
+                                {% if paragon.mime_type_pliku.startswith('image/') %}
+                                    <img src="{{ url_for('static', path=paragon.sciezka_miniatury) }}" 
+                                         alt="Podgląd paragonu" 
+                                         class="receipt-preview">
+                                {% else %}
+                                    <div class="mdc-card">
+                                        <div class="mdc-card__primary-action">
+                                            <div class="mdc-card__media mdc-card__media--16-9">
+                                                <div class="mdc-card__media-content">
+                                                    <span class="material-icons" style="font-size: 48px;">picture_as_pdf</span>
+                                                </div>
+                                            </div>
+                                            <div class="mdc-card__primary">
+                                                <h2 class="mdc-typography--headline6">{{ paragon.nazwa_pliku_oryginalnego }}</h2>
+                                                <h3 class="mdc-typography--subtitle2">PDF Document</h3>
+                                            </div>
+                                        </div>
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- File Information -->
+                        <div class="mdc-layout-grid__cell mdc-layout-grid__cell--span-12">
+                            <div class="mdc-list">
+                                <div class="mdc-list-item">
+                                    <span class="material-icons mdc-list-item__graphic">description</span>
+                                    <span class="mdc-list-item__text">Nazwa pliku</span>
+                                    <span class="mdc-list-item__meta">{{ paragon.nazwa_pliku_oryginalnego }}</span>
+                                </div>
+                                <div class="mdc-list-item">
+                                    <span class="material-icons mdc-list-item__graphic">schedule</span>
+                                    <span class="mdc-list-item__text">Data wysłania</span>
+                                    <span class="mdc-list-item__meta">{{ paragon.data_wyslania.strftime('%Y-%m-%d %H:%M:%S') }}</span>
+                                </div>
+                                <div class="mdc-list-item">
+                                    <span class="material-icons mdc-list-item__graphic">category</span>
+                                    <span class="mdc-list-item__text">Typ pliku</span>
+                                    <span class="mdc-list-item__meta">{{ paragon.mime_type_pliku }}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Action Buttons -->
+                        <div class="mdc-layout-grid__cell mdc-layout-grid__cell--span-12" style="text-align: center; margin-top: 1rem;">
+                            <button id="process-button" class="mdc-button mdc-button--raised">
+                                <div class="mdc-button__ripple"></div>
+                                <span class="mdc-button__label">Rozpocznij przetwarzanie</span>
+                            </button>
+                            <button id="cancel-button" class="mdc-button">
+                                <div class="mdc-button__ripple"></div>
+                                <span class="mdc-button__label">Anuluj</span>
+                            </button>
+                        </div>
+
+                        <!-- Progress Indicators -->
+                        <div class="mdc-layout-grid__cell mdc-layout-grid__cell--span-12">
+                            <div class="progress-container" style="display: none;">
+                                <div class="mdc-linear-progress">
+                                    <div class="mdc-linear-progress__buffering-dots"></div>
+                                    <div class="mdc-linear-progress__buffer"></div>
+                                    <div class="mdc-linear-progress__bar mdc-linear-progress__primary-bar">
+                                        <span class="mdc-linear-progress__bar-inner"></span>
+                                    </div>
+                                    <div class="mdc-linear-progress__bar mdc-linear-progress__secondary-bar">
+                                        <span class="mdc-linear-progress__bar-inner"></span>
+                                    </div>
+                                </div>
+                                <p class="mdc-typography--body2 progress-status" style="margin-top: 0.5rem;">
+                                    Przygotowywanie przetwarzania...
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const processButton = document.getElementById('process-button');
+    const cancelButton = document.getElementById('cancel-button');
+    const progressContainer = document.querySelector('.progress-container');
+    const progressBar = document.querySelector('.mdc-linear-progress');
+    const progressStatus = document.querySelector('.progress-status');
+
+    // Initialize progress bar
+    const linearProgress = mdc.linearProgress.MDCLinearProgress.attachTo(progressBar);
+    linearProgress.determinate = false;
+
+    // Process button click handler
+    processButton.addEventListener('click', async () => {
+        // Show progress
+        progressContainer.style.display = 'block';
+        linearProgress.determinate = false;
+        processButton.disabled = true;
+        cancelButton.disabled = true;
+        
+        try {
+            const response = await fetch(`/paragony/{{ paragon.id }}/rozpocznij_przetwarzanie`, {
+                method: 'POST'
+            });
+            
+            if (!response.ok) {
+                throw new Error('Błąd podczas rozpoczynania przetwarzania');
+            }
+            
+            const data = await response.json();
+            
+            // Update progress
+            linearProgress.determinate = true;
+            linearProgress.progress = 1;
+            progressStatus.textContent = 'Przetwarzanie rozpoczęte!';
+            
+            // Redirect to processing status page
+            window.location.href = `/paragony/{{ paragon.id }}/status`;
+            
+        } catch (error) {
+            console.error('Error:', error);
+            progressStatus.textContent = 'Wystąpił błąd podczas rozpoczynania przetwarzania';
+            processButton.disabled = false;
+            cancelButton.disabled = false;
+            window.showNotification('Wystąpił błąd podczas rozpoczynania przetwarzania', 5000);
+        }
+    });
+
+    // Cancel button click handler
+    cancelButton.addEventListener('click', () => {
+        window.location.href = '/paragony';
+    });
+});
+</script>
+{% endblock %} 

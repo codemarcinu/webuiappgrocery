@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="mdc-layout-grid">
+    <div class="mdc-layout-grid__inner">
+        <!-- Welcome Card -->
+        <div class="mdc-layout-grid__cell mdc-layout-grid__cell--span-12">
+            <div class="mdc-card">
+                <div class="mdc-card__primary">
+                    <h1 class="mdc-typography--headline4">Witaj w Asystencie Spiżarni!</h1>
+                    <h2 class="mdc-typography--headline6">Zarządzaj swoją spiżarnią inteligentnie</h2>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="mdc-layout-grid__cell mdc-layout-grid__cell--span-12">
+            <h2 class="mdc-typography--headline5">Szybkie akcje</h2>
+            <div class="mdc-layout-grid__inner">
+                <!-- Add Receipt -->
+                <div class="mdc-layout-grid__cell mdc-layout-grid__cell--span-4">
+                    <div class="mdc-card">
+                        <div class="mdc-card__primary-action">
+                            <div class="mdc-card__media mdc-card__media--16-9">
+                                <div class="mdc-card__media-content">
+                                    <span class="material-icons" style="font-size: 48px;">receipt</span>
+                                </div>
+                            </div>
+                            <div class="mdc-card__primary">
+                                <h2 class="mdc-typography--headline6">Dodaj paragon</h2>
+                                <h3 class="mdc-typography--subtitle2">Skanuj i analizuj paragony</h3>
+                            </div>
+                        </div>
+                        <div class="mdc-card__actions">
+                            <div class="mdc-card__action-buttons">
+                                <a href="/paragony/dodaj" class="mdc-button mdc-card__action mdc-card__action--button">
+                                    <div class="mdc-button__ripple"></div>
+                                    <span class="mdc-button__label">Dodaj</span>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- View Pantry -->
+                <div class="mdc-layout-grid__cell mdc-layout-grid__cell--span-4">
+                    <div class="mdc-card">
+                        <div class="mdc-card__primary-action">
+                            <div class="mdc-card__media mdc-card__media--16-9">
+                                <div class="mdc-card__media-content">
+                                    <span class="material-icons" style="font-size: 48px;">kitchen</span>
+                                </div>
+                            </div>
+                            <div class="mdc-card__primary">
+                                <h2 class="mdc-typography--headline6">Spiżarnia</h2>
+                                <h3 class="mdc-typography--subtitle2">Przeglądaj i zarządzaj produktami</h3>
+                            </div>
+                        </div>
+                        <div class="mdc-card__actions">
+                            <div class="mdc-card__action-buttons">
+                                <a href="/spizarnia" class="mdc-button mdc-card__action mdc-card__action--button">
+                                    <div class="mdc-button__ripple"></div>
+                                    <span class="mdc-button__label">Przeglądaj</span>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Get Suggestions -->
+                <div class="mdc-layout-grid__cell mdc-layout-grid__cell--span-4">
+                    <div class="mdc-card">
+                        <div class="mdc-card__primary-action">
+                            <div class="mdc-card__media mdc-card__media--16-9">
+                                <div class="mdc-card__media-content">
+                                    <span class="material-icons" style="font-size: 48px;">lightbulb</span>
+                                </div>
+                            </div>
+                            <div class="mdc-card__primary">
+                                <h2 class="mdc-typography--headline6">Sugestie</h2>
+                                <h3 class="mdc-typography--subtitle2">Otrzymaj inteligentne podpowiedzi</h3>
+                            </div>
+                        </div>
+                        <div class="mdc-card__actions">
+                            <div class="mdc-card__action-buttons">
+                                <a href="/sugestie" class="mdc-button mdc-card__action mdc-card__action--button">
+                                    <div class="mdc-button__ripple"></div>
+                                    <span class="mdc-button__label">Sprawdź</span>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Activity -->
+        <div class="mdc-layout-grid__cell mdc-layout-grid__cell--span-12">
+            <h2 class="mdc-typography--headline5">Ostatnia aktywność</h2>
+            <div class="mdc-card">
+                <div class="mdc-card__primary">
+                    <div class="mdc-list">
+                        {% if recent_activity %}
+                            {% for activity in recent_activity %}
+                                <div class="mdc-list-item">
+                                    <span class="material-icons mdc-list-item__graphic">{{ activity.icon }}</span>
+                                    <span class="mdc-list-item__text">{{ activity.text }}</span>
+                                    <span class="mdc-list-item__meta">{{ activity.time }}</span>
+                                </div>
+                            {% endfor %}
+                        {% else %}
+                            <div class="mdc-list-item">
+                                <span class="material-icons mdc-list-item__graphic">info</span>
+                                <span class="mdc-list-item__text">Brak ostatniej aktywności</span>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 
