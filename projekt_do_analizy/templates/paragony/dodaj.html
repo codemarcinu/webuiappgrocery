@@ -4,89 +4,104 @@
 
 {% block content %}
 <div class="container mt-4">
-    <h1>Dodaj Paragon</h1>
-    <form id="upload-form" action="/paragony/wyslij_plik" method="post" enctype="multipart/form-data">
-        <div class="mb-3">
-            <label for="file" class="form-label">Wybierz plik paragonu (PDF lub obraz)</label>
-            <input type="file" class="form-control" id="file" name="file" accept=".pdf,image/*" required>
-        </div>
-        <div class="mb-3">
-            <div id="preview-container" style="display: none;">
-                <h3>Podgląd:</h3>
-                <img id="preview-image" class="img-fluid" style="max-width: 300px;" />
-                <p id="preview-pdf" style="display: none;">Wybrano plik PDF. Podgląd niedostępny.</p>
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title mb-0">Dodaj Nowy Paragon</h2>
+                </div>
+                <div class="card-body">
+                    {% if error %}
+                    <div class="alert alert-danger">
+                        <i class="fas fa-exclamation-circle"></i> {{ error }}
+                    </div>
+                    {% endif %}
+
+                    <form method="POST" enctype="multipart/form-data" id="uploadForm">
+                        <div class="mb-3">
+                            <label for="file" class="form-label">Wybierz plik paragonu</label>
+                            <input type="file" 
+                                   class="form-control" 
+                                   id="file" 
+                                   name="file" 
+                                   accept="image/jpeg,image/png,image/gif" 
+                                   required
+                                   onchange="validateFile(this)">
+                            <div class="form-text">
+                                Dozwolone formaty: JPG, PNG, GIF. Maksymalny rozmiar: 16MB.
+                            </div>
+                            <div class="invalid-feedback">
+                                Wybierz prawidłowy plik obrazu (JPG, PNG lub GIF) o rozmiarze nie większym niż 16MB.
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="komentarz" class="form-label">Komentarz (opcjonalnie)</label>
+                            <textarea class="form-control" 
+                                      id="komentarz" 
+                                      name="komentarz" 
+                                      rows="2"
+                                      maxlength="500"
+                                      placeholder="Maksymalnie 500 znaków"></textarea>
+                            <div class="form-text">
+                                Maksymalnie 500 znaków
+                            </div>
+                        </div>
+
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary" id="submitBtn">
+                                <i class="fas fa-upload"></i> Prześlij Paragon
+                            </button>
+                            <a href="/paragony" class="btn btn-outline-secondary">
+                                <i class="fas fa-arrow-left"></i> Powrót do Listy
+                            </a>
+                        </div>
+                    </form>
+                </div>
             </div>
         </div>
-        <div id="loading" style="display: none;" class="mb-3">
-            <div class="spinner-border text-primary" role="status">
-                <span class="visually-hidden">Ładowanie...</span>
-            </div>
-            <span class="ms-2">Wysyłanie pliku...</span>
-        </div>
-        <div id="error-message" class="alert alert-danger" style="display: none;"></div>
-        <button type="submit" class="btn btn-primary">Wyślij</button>
-    </form>
+    </div>
 </div>
-{% endblock %}
 
-{% block extra_js %}
+{% block scripts %}
 <script>
-document.getElementById('file').addEventListener('change', function(event) {
-    const file = event.target.files[0];
-    const previewContainer = document.getElementById('preview-container');
-    const previewImage = document.getElementById('preview-image');
-    const previewPdf = document.getElementById('preview-pdf');
-
+function validateFile(input) {
+    const file = input.files[0];
+    const maxSize = 16 * 1024 * 1024; // 16MB
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif'];
+    
     if (file) {
-        previewContainer.style.display = 'block';
-        if (file.type.startsWith('image/')) {
-            previewImage.style.display = 'block';
-            previewPdf.style.display = 'none';
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                previewImage.src = e.target.result;
-            };
-            reader.readAsDataURL(file);
-        } else if (file.type === 'application/pdf') {
-            previewImage.style.display = 'none';
-            previewPdf.style.display = 'block';
+        if (file.size > maxSize) {
+            input.setCustomValidity('Plik jest za duży. Maksymalny rozmiar to 16MB.');
+            input.value = '';
+        } else if (!allowedTypes.includes(file.type)) {
+            input.setCustomValidity('Niedozwolony format pliku. Dozwolone formaty: JPG, PNG, GIF.');
+            input.value = '';
+        } else {
+            input.setCustomValidity('');
         }
-    } else {
-        previewContainer.style.display = 'none';
     }
-});
+}
 
-document.getElementById('upload-form').addEventListener('submit', async function(event) {
-    event.preventDefault();
-    const loading = document.getElementById('loading');
-    const errorMessage = document.getElementById('error-message');
-    const submitButton = this.querySelector('button[type="submit"]');
-
-    loading.style.display = 'block';
-    errorMessage.style.display = 'none';
-    submitButton.disabled = true;
-
-    try {
-        const formData = new FormData(this);
-        const response = await fetch(this.action, {
-            method: 'POST',
-            body: formData
-        });
-
-        if (!response.ok) {
-            throw new Error('Błąd podczas wysyłania pliku');
+document.getElementById('uploadForm').addEventListener('submit', function(e) {
+    const fileInput = document.getElementById('file');
+    const submitBtn = document.getElementById('submitBtn');
+    
+    if (fileInput.files.length > 0) {
+        const file = fileInput.files[0];
+        const maxSize = 16 * 1024 * 1024; // 16MB
+        
+        if (file.size > maxSize) {
+            e.preventDefault();
+            alert('Plik jest za duży. Maksymalny rozmiar to 16MB.');
+            return;
         }
-
-        const data = await response.json();
-        window.location.href = `/paragony/podglad/${data.id_sesji}`;
-    } catch (error) {
-        console.error('Error:', error);
-        errorMessage.textContent = error.message;
-        errorMessage.style.display = 'block';
-    } finally {
-        loading.style.display = 'none';
-        submitButton.disabled = false;
+        
+        // Disable submit button and show loading state
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Przesyłanie...';
     }
 });
 </script>
+{% endblock %}
 {% endblock %} 

@@ -1,0 +1,6 @@
+Collecting wtforms
+  Downloading wtforms-3.2.1-py3-none-any.whl.metadata (5.3 kB)
+Requirement already satisfied: markupsafe in ./venv/lib/python3.10/site-packages (from wtforms) (3.0.2)
+Downloading wtforms-3.2.1-py3-none-any.whl (152 kB)
+Installing collected packages: wtforms
+Successfully installed wtforms-3.2.1

@@ -1,172 +1,125 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="mdc-layout-grid">
-    <div class="mdc-layout-grid__inner">
-        <div class="mdc-layout-grid__cell mdc-layout-grid__cell--span-12">
-            <div class="mdc-card">
-                <div class="mdc-card__primary">
-                    <h1 class="mdc-typography--headline4">Import produktów</h1>
-                    <h2 class="mdc-typography--subtitle1">Przejrzyj i zaimportuj wykryte produkty</h2>
-                </div>
-
-                <div class="mdc-card__content">
-                    <form id="import-form" action="/paragony/{{ paragon.id }}/import" method="post">
-                        <div class="mdc-layout-grid__inner">
-                            <!-- Receipt Preview -->
-                            <div class="mdc-layout-grid__cell mdc-layout-grid__cell--span-12">
-                                <div class="receipt-preview-container" style="text-align: center;">
-                                    {% if paragon.mime_type_pliku.startswith('image/') %}
-                                        <img src="{{ url_for('static', path=paragon.sciezka_miniatury) }}" 
-                                             alt="Podgląd paragonu" 
-                                             class="receipt-preview">
-                                    {% else %}
-                                        <div class="mdc-card">
-                                            <div class="mdc-card__primary-action">
-                                                <div class="mdc-card__media mdc-card__media--16-9">
-                                                    <div class="mdc-card__media-content">
-                                                        <span class="material-icons" style="font-size: 48px;">picture_as_pdf</span>
-                                                    </div>
-                                                </div>
-                                                <div class="mdc-card__primary">
-                                                    <h2 class="mdc-typography--headline6">{{ paragon.nazwa_pliku_oryginalnego }}</h2>
-                                                    <h3 class="mdc-typography--subtitle2">PDF Document</h3>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    {% endif %}
-                                </div>
+<div class="container mt-4">
+    <h2>Import produktów z paragonu</h2>
+    
+    <form method="POST" class="mt-4">
+        <div class="table-responsive">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Wybór</th>
+                        <th>Nazwa produktu</th>
+                        <th>Kategoria</th>
+                        <th>Cena</th>
+                        <th>Ilość</th>
+                        <th>Data ważności</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for produkt in produkty %}
+                    <tr>
+                        <td>
+                            <input type="checkbox" name="selected_products[]" value="{{ produkt.id }}" checked>
+                        </td>
+                        <td>
+                            <input type="text" 
+                                   class="form-control {% if form.nazwa.errors %}is-invalid{% endif %}" 
+                                   name="nazwa_{{ produkt.id }}" 
+                                   value="{{ produkt.nazwa }}"
+                                   required
+                                   minlength="2"
+                                   maxlength="100"
+                                   pattern="[A-Za-z0-9\s\-\.]+"
+                                   title="Nazwa produktu może zawierać litery, cyfry, spacje, kropki i myślniki">
+                            {% if form.nazwa.errors %}
+                            <div class="invalid-feedback">
+                                {% for error in form.nazwa.errors %}
+                                {{ error }}
+                                {% endfor %}
                             </div>
-
-                            <!-- Products List -->
-                            <div class="mdc-layout-grid__cell mdc-layout-grid__cell--span-12">
-                                <div class="mdc-data-table">
-                                    <table class="mdc-data-table__table">
-                                        <thead>
-                                            <tr class="mdc-data-table__header-row">
-                                                <th class="mdc-data-table__header-cell" role="columnheader" scope="col">
-                                                    <div class="mdc-checkbox">
-                                                        <input type="checkbox" class="mdc-checkbox__native-control" id="select-all">
-                                                        <div class="mdc-checkbox__background">
-                                                            <svg class="mdc-checkbox__checkmark" viewBox="0 0 24 24">
-                                                                <path class="mdc-checkbox__checkmark-path" fill="none" d="M1.73,12.91 8.1,19.28 22.79,4.59"/>
-                                                            </svg>
-                                                        </div>
-                                                    </div>
-                                                </th>
-                                                <th class="mdc-data-table__header-cell" role="columnheader" scope="col">Nazwa</th>
-                                                <th class="mdc-data-table__header-cell" role="columnheader" scope="col">Kategoria</th>
-                                                <th class="mdc-data-table__header-cell" role="columnheader" scope="col">Cena</th>
-                                                <th class="mdc-data-table__header-cell" role="columnheader" scope="col">Data ważności</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody class="mdc-data-table__content">
-                                            {% for produkt in produkty %}
-                                            <tr class="mdc-data-table__row">
-                                                <td class="mdc-data-table__cell">
-                                                    <div class="mdc-checkbox">
-                                                        <input type="checkbox" 
-                                                               class="mdc-checkbox__native-control" 
-                                                               name="selected_products[]" 
-                                                               value="{{ produkt.id }}">
-                                                        <div class="mdc-checkbox__background">
-                                                            <svg class="mdc-checkbox__checkmark" viewBox="0 0 24 24">
-                                                                <path class="mdc-checkbox__checkmark-path" fill="none" d="M1.73,12.91 8.1,19.28 22.79,4.59"/>
-                                                            </svg>
-                                                        </div>
-                                                    </div>
-                                                </td>
-                                                <td class="mdc-data-table__cell">
-                                                    <div class="mdc-text-field mdc-text-field--outlined" style="width: 100%;">
-                                                        <input type="text" 
-                                                               class="mdc-text-field__input" 
-                                                               name="nazwa_{{ produkt.id }}" 
-                                                               value="{{ produkt.nazwa }}"
-                                                               required>
-                                                        <span class="mdc-notched-outline">
-                                                            <span class="mdc-notched-outline__leading"></span>
-                                                            <span class="mdc-notched-outline__notch">
-                                                                <span class="mdc-floating-label">Nazwa</span>
-                                                            </span>
-                                                            <span class="mdc-notched-outline__trailing"></span>
-                                                        </span>
-                                                    </div>
-                                                </td>
-                                                <td class="mdc-data-table__cell">
-                                                    <div class="mdc-select mdc-select--outlined" style="width: 100%;">
-                                                        <select class="mdc-select__native-control" name="kategoria_{{ produkt.id }}" required>
-                                                            {% for kategoria in kategorie %}
-                                                            <option value="{{ kategoria }}" 
-                                                                    {% if kategoria == produkt.kategoria %}selected{% endif %}>
-                                                                {{ kategoria }}
-                                                            </option>
-                                                            {% endfor %}
-                                                        </select>
-                                                        <span class="mdc-notched-outline">
-                                                            <span class="mdc-notched-outline__leading"></span>
-                                                            <span class="mdc-notched-outline__notch">
-                                                                <span class="mdc-floating-label">Kategoria</span>
-                                                            </span>
-                                                            <span class="mdc-notched-outline__trailing"></span>
-                                                        </span>
-                                                    </div>
-                                                </td>
-                                                <td class="mdc-data-table__cell">
-                                                    <div class="mdc-text-field mdc-text-field--outlined" style="width: 100%;">
-                                                        <input type="number" 
-                                                               class="mdc-text-field__input" 
-                                                               name="cena_{{ produkt.id }}" 
-                                                               value="{{ produkt.cena }}"
-                                                               step="0.01"
-                                                               required>
-                                                        <span class="mdc-notched-outline">
-                                                            <span class="mdc-notched-outline__leading"></span>
-                                                            <span class="mdc-notched-outline__notch">
-                                                                <span class="mdc-floating-label">Cena</span>
-                                                            </span>
-                                                            <span class="mdc-notched-outline__trailing"></span>
-                                                        </span>
-                                                    </div>
-                                                </td>
-                                                <td class="mdc-data-table__cell">
-                                                    <div class="mdc-text-field mdc-text-field--outlined" style="width: 100%;">
-                                                        <input type="date" 
-                                                               class="mdc-text-field__input" 
-                                                               name="data_waznosci_{{ produkt.id }}" 
-                                                               value="{{ produkt.data_waznosci }}">
-                                                        <span class="mdc-notched-outline">
-                                                            <span class="mdc-notched-outline__leading"></span>
-                                                            <span class="mdc-notched-outline__notch">
-                                                                <span class="mdc-floating-label">Data ważności</span>
-                                                            </span>
-                                                            <span class="mdc-notched-outline__trailing"></span>
-                                                        </span>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                            {% endfor %}
-                                        </tbody>
-                                    </table>
-                                </div>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <select class="form-select {% if form.kategoria.errors %}is-invalid{% endif %}" 
+                                    name="kategoria_{{ produkt.id }}" 
+                                    required>
+                                {% for kategoria in kategorie %}
+                                <option value="{{ kategoria }}" {% if kategoria == produkt.kategoria %}selected{% endif %}>
+                                    {{ kategoria }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                            {% if form.kategoria.errors %}
+                            <div class="invalid-feedback">
+                                {% for error in form.kategoria.errors %}
+                                {{ error }}
+                                {% endfor %}
                             </div>
-
-                            <!-- Action Buttons -->
-                            <div class="mdc-layout-grid__cell mdc-layout-grid__cell--span-12" style="text-align: center; margin-top: 1rem;">
-                                <button type="submit" class="mdc-button mdc-button--raised">
-                                    <div class="mdc-button__ripple"></div>
-                                    <span class="mdc-button__label">Importuj wybrane produkty</span>
-                                </button>
-                                <a href="/paragony" class="mdc-button">
-                                    <div class="mdc-button__ripple"></div>
-                                    <span class="mdc-button__label">Anuluj</span>
-                                </a>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <input type="number" 
+                                   class="form-control {% if form.cena.errors %}is-invalid{% endif %}" 
+                                   name="cena_{{ produkt.id }}" 
+                                   value="{{ produkt.cena }}"
+                                   step="0.01"
+                                   min="0.01"
+                                   max="9999.99"
+                                   required
+                                   title="Cena musi być większa od 0 i mniejsza niż 10000">
+                            {% if form.cena.errors %}
+                            <div class="invalid-feedback">
+                                {% for error in form.cena.errors %}
+                                {{ error }}
+                                {% endfor %}
                             </div>
-                        </div>
-                    </form>
-                </div>
-            </div>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <input type="number" 
+                                   class="form-control {% if form.ilosc_na_paragonie.errors %}is-invalid{% endif %}" 
+                                   name="ilosc_{{ produkt.id }}" 
+                                   value="{{ produkt.ilosc_na_paragonie or 1 }}"
+                                   min="1"
+                                   max="999"
+                                   required
+                                   title="Ilość musi być liczbą całkowitą od 1 do 999">
+                            {% if form.ilosc_na_paragonie.errors %}
+                            <div class="invalid-feedback">
+                                {% for error in form.ilosc_na_paragonie.errors %}
+                                {{ error }}
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <input type="date" 
+                                   class="form-control {% if form.data_waznosci.errors %}is-invalid{% endif %}" 
+                                   name="data_waznosci_{{ produkt.id }}" 
+                                   value="{{ produkt.data_waznosci.strftime('%Y-%m-%d') if produkt.data_waznosci else '' }}"
+                                   min="{{ today }}"
+                                   title="Data ważności nie może być z przeszłości">
+                            {% if form.data_waznosci.errors %}
+                            <div class="invalid-feedback">
+                                {% for error in form.data_waznosci.errors %}
+                                {{ error }}
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
-    </div>
+
+        <div class="mt-3">
+            <button type="submit" class="btn btn-primary">Zapisz produkty</button>
+            <a href="/paragony" class="btn btn-secondary">Anuluj</a>
+        </div>
+    </form>
 </div>
 {% endblock %}
 

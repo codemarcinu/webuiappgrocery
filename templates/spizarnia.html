@@ -36,6 +36,7 @@
                 <th>Nazwa</th>
                 <th>Kategoria</th>
                 <th>Cena</th>
+                <th>Ilość</th>
                 <th>Data ważności</th>
                 <th>Data dodania</th>
                 <th>Akcje</th>
@@ -47,12 +48,17 @@
                 <td>{{ produkt.nazwa }}</td>
                 <td>{{ produkt.kategoria }}</td>
                 <td>{{ produkt.cena }}</td>
+                <td>{{ produkt.aktualna_ilosc }}</td>
                 <td>{{ produkt.data_waznosci or '' }}</td>
                 <td>{{ produkt.data_dodania.strftime('%Y-%m-%d %H:%M') }}</td>
                 <td>
                     <a href="/spizarnia/edytuj/{{ produkt.id }}" class="btn btn-sm btn-primary">Edytuj</a>
-                    <form action="/spizarnia/usun/{{ produkt.id }}" method="post" style="display:inline;">
-                        <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Na pewno usunąć produkt?');">Usuń</button>
+                    <form action="/spizarnia/usun/{{ produkt.id }}" method="POST" style="display:inline;">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                        <button type="submit" class="btn btn-sm btn-outline-danger" 
+                                onclick="return confirm('Czy na pewno chcesz usunąć ten produkt?');">
+                            <i class="fas fa-trash"></i>
+                        </button>
                     </form>
                 </td>
             </tr>

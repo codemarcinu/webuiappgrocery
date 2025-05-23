@@ -4,25 +4,135 @@
 
 {% block content %}
 <div class="container mt-4">
-    <h1>Podgląd Paragonu</h1>
-    <div class="card mb-3">
-        <div class="card-body">
-            <h5 class="card-title">Plik: {{ paragon.nazwa_pliku_oryginalnego }}</h5>
-            <p class="card-text"><strong>Status:</strong> {{ paragon.status_przetwarzania }}</p>
-            <p class="card-text"><strong>Data wysłania:</strong> {{ paragon.data_wyslania.strftime('%Y-%m-%d %H:%M') }}</p>
-            {% if paragon.sciezka_miniatury %}
-                <img src="/{{ paragon.sciezka_miniatury }}" alt="Miniatura" class="img-thumbnail" style="max-width: 300px;">
-            {% endif %}
-            <p class="card-text"><strong>Typ pliku:</strong> {{ paragon.mime_type_pliku }}</p>
-            <p class="card-text"><strong>Ścieżka na serwerze:</strong> {{ paragon.sciezka_pliku_na_serwerze }}</p>
-            {% if paragon.blad_przetwarzania %}
-                <div class="alert alert-danger mt-2">Błąd: {{ paragon.blad_przetwarzania }}</div>
-            {% endif %}
+    <div class="row">
+        <!-- Receipt Image -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title mb-0">Obraz Paragonu</h3>
+                </div>
+                <div class="card-body text-center">
+                    <img src="{{ url_for('paragony.serve_receipt_file', filename=paragon.sciezka_pliku_na_serwerze) }}" 
+                         class="img-fluid" 
+                         alt="Paragon"
+                         style="max-height: 600px;">
+                </div>
+            </div>
+        </div>
+
+        <!-- Receipt Details -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title mb-0">Szczegóły Paragonu</h3>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <h5>Status Przetwarzania</h5>
+                        <div class="d-flex align-items-center">
+                            <span class="badge {% if paragon.status_przetwarzania == 'PRZETWORZONY_OK' %}bg-success
+                                             {% elif paragon.status_przetwarzania == 'PRZETWORZONY_BLAD' %}bg-danger
+                                             {% elif paragon.status_przetwarzania in ['PRZETWARZANY_OCR', 'PRZETWARZANY_AI'] %}bg-warning
+                                             {% else %}bg-secondary{% endif %} me-2">
+                                {{ paragon.status_przetwarzania }}
+                            </span>
+                            {% if paragon.status_przetwarzania in ['PRZETWARZANY_OCR', 'PRZETWARZANY_AI'] %}
+                            <div class="spinner-border spinner-border-sm text-primary ms-2" role="status">
+                                <span class="visually-hidden">Przetwarzanie...</span>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <h5>Informacje</h5>
+                        <dl class="row">
+                            <dt class="col-sm-4">Nazwa pliku:</dt>
+                            <dd class="col-sm-8">{{ paragon.nazwa_pliku_oryginalnego }}</dd>
+
+                            <dt class="col-sm-4">Data wysłania:</dt>
+                            <dd class="col-sm-8">{{ paragon.data_wyslania.strftime('%Y-%m-%d %H:%M') }}</dd>
+
+                            {% if paragon.data_przetworzenia %}
+                            <dt class="col-sm-4">Data przetworzenia:</dt>
+                            <dd class="col-sm-8">{{ paragon.data_przetworzenia.strftime('%Y-%m-%d %H:%M') }}</dd>
+                            {% endif %}
+
+                            {% if paragon.blad_przetwarzania %}
+                            <dt class="col-sm-4">Błąd:</dt>
+                            <dd class="col-sm-8 text-danger">{{ paragon.blad_przetwarzania }}</dd>
+                            {% endif %}
+                        </dl>
+                    </div>
+
+                    {% if paragon.status_przetwarzania == 'PRZETWORZONY_OK' %}
+                    <div class="mb-3">
+                        <h5>Wykryte Produkty</h5>
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Nazwa</th>
+                                        <th>Kategoria</th>
+                                        <th>Cena</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for produkt in paragon.produkty %}
+                                    <tr>
+                                        <td>{{ produkt.nazwa }}</td>
+                                        <td>{{ produkt.kategoria }}</td>
+                                        <td>{{ "%.2f"|format(produkt.cena) }} zł</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <div class="d-grid gap-2">
+                        <a href="/paragony" class="btn btn-outline-secondary">
+                            <i class="fas fa-arrow-left"></i> Powrót do Listy
+                        </a>
+                        {% if paragon.status_przetwarzania == 'PRZETWORZONY_OK' %}
+                        <a href="/spizarnia/dodaj/{{ paragon.id }}" class="btn btn-success">
+                            <i class="fas fa-shopping-basket"></i> Dodaj do Spiżarni
+                        </a>
+                        {% endif %}
+                        <form action="/paragony/usun/{{ paragon.id }}" method="POST" class="d-inline" 
+                              onsubmit="return confirm('Czy na pewno chcesz usunąć ten paragon?');">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                            <button type="submit" class="btn btn-danger">
+                                <i class="fas fa-trash"></i> Usuń Paragon
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
-    <form action="/paragony/{{ paragon.id }}/rozpocznij_przetwarzanie" method="post">
-        <button type="submit" class="btn btn-success">Rozpocznij przetwarzanie</button>
-    </form>
-    <a href="/" class="btn btn-secondary mt-3">Powrót do listy</a>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Auto-refresh status for processing receipts
+{% if paragon.status_przetwarzania in ['PRZETWARZANY_OCR', 'PRZETWARZANY_AI'] %}
+function checkStatus() {
+    fetch("{{ url_for('paragony.status_przetwarzania', paragon_id=paragon.id) }}")
+        .then(response => response.json())
+        .then(data => {
+            if (data.status !== "{{ paragon.status_przetwarzania }}") {
+                window.location.reload();
+            } else if (data.status in ['PRZETWARZANY_OCR', 'PRZETWARZANY_AI']) {
+                setTimeout(checkStatus, 2000);
+            }
+        })
+        .catch(error => console.error('Error checking status:', error));
+}
+
+setTimeout(checkStatus, 2000);
+{% endif %}
+</script>
 {% endblock %} 

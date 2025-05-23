@@ -8,11 +8,26 @@
     <form action="/spizarnia/edytuj/{{ produkt.id }}" method="post">
         <div class="mb-3">
             <label for="nazwa" class="form-label">Nazwa</label>
-            <input type="text" class="form-control" id="nazwa" name="nazwa" value="{{ produkt.nazwa }}" required>
+            <input type="text" 
+                   class="form-control" 
+                   id="nazwa" 
+                   name="nazwa" 
+                   value="{{ produkt.nazwa }}" 
+                   required
+                   minlength="2"
+                   maxlength="100"
+                   pattern="[A-Za-z0-9\s\-\.]+"
+                   title="Nazwa produktu może zawierać litery, cyfry, spacje, kropki i myślniki">
+            <div class="form-text">
+                Minimum 2 znaki, maksymalnie 100 znaków
+            </div>
         </div>
         <div class="mb-3">
             <label for="kategoria" class="form-label">Kategoria</label>
-            <select class="form-control" id="kategoria" name="kategoria" required>
+            <select class="form-control" 
+                    id="kategoria" 
+                    name="kategoria" 
+                    required>
                 {% for kategoria in kategorie %}
                 <option value="{{ kategoria }}" {% if kategoria == produkt.kategoria %}selected{% endif %}>{{ kategoria }}</option>
                 {% endfor %}
@@ -20,11 +35,47 @@
         </div>
         <div class="mb-3">
             <label for="cena" class="form-label">Cena</label>
-            <input type="number" class="form-control" id="cena" name="cena" value="{{ produkt.cena }}" step="0.01" required>
+            <input type="number" 
+                   class="form-control" 
+                   id="cena" 
+                   name="cena" 
+                   value="{{ produkt.cena }}" 
+                   step="0.01"
+                   min="0.01"
+                   max="9999.99"
+                   required
+                   title="Cena musi być większa od 0 i mniejsza niż 10000">
+            <div class="form-text">
+                Wartość od 0.01 do 9999.99
+            </div>
+        </div>
+        <div class="mb-3">
+            <label for="ilosc" class="form-label">Ilość</label>
+            <input type="number" 
+                   class="form-control" 
+                   id="ilosc" 
+                   name="ilosc" 
+                   value="{{ produkt.aktualna_ilosc }}" 
+                   min="0"
+                   max="999"
+                   required
+                   title="Ilość musi być liczbą całkowitą od 0 do 999">
+            <div class="form-text">
+                Wartość od 0 do 999
+            </div>
         </div>
         <div class="mb-3">
             <label for="data_waznosci" class="form-label">Data ważności</label>
-            <input type="date" class="form-control" id="data_waznosci" name="data_waznosci" value="{{ produkt.data_waznosci }}">
+            <input type="date" 
+                   class="form-control" 
+                   id="data_waznosci" 
+                   name="data_waznosci" 
+                   value="{{ produkt.data_waznosci }}"
+                   min="{{ today }}"
+                   title="Data ważności nie może być z przeszłości">
+            <div class="form-text">
+                Opcjonalnie
+            </div>
         </div>
         <button type="submit" class="btn btn-success">Zapisz zmiany</button>
         <a href="/spizarnia" class="btn btn-secondary ms-2">Anuluj</a>

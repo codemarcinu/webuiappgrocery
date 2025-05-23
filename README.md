@@ -1,28 +1,13 @@
 # Webowy Asystent Spiżarni
 
-Aplikacja webowa do zarządzania produktami w spiżarni, z funkcją przetwarzania paragonów.
-
-## Funkcjonalności
-
-- Przesyłanie i przetwarzanie paragonów
-- Automatyczne rozpoznawanie produktów z paragonów
-- Zarządzanie produktami w spiżarni
-- Śledzenie dat ważności produktów
-- Interfejs użytkownika w Material Design
-- Tryb ciemny
-
-## Wymagania
-
-- Python 3.8+
-- SQLite (lub inna baza danych SQL)
-- Przeglądarka internetowa z obsługą JavaScript
+Aplikacja do zarządzania produktami w spiżarni, z funkcją automatycznego przetwarzania paragonów.
 
 ## Instalacja
 
 1. Sklonuj repozytorium:
 ```bash
-git clone https://github.com/twoj-username/webowy-asystent-spizarni.git
-cd webowy-asystent-spizarni
+git clone <url-repozytorium>
+cd webuiappgrocery
 ```
 
 2. Utwórz i aktywuj wirtualne środowisko:
@@ -30,7 +15,7 @@ cd webowy-asystent-spizarni
 python -m venv venv
 source venv/bin/activate  # Linux/Mac
 # lub
-venv\Scripts\activate  # Windows
+.\venv\Scripts\activate  # Windows
 ```
 
 3. Zainstaluj zależności:
@@ -38,47 +23,46 @@ venv\Scripts\activate  # Windows
 pip install -r requirements.txt
 ```
 
-4. Uruchom aplikację:
+4. Skonfiguruj zmienne środowiskowe:
+   - Utwórz plik `.env` w głównym katalogu projektu
+   - Skopiuj zawartość z `.env.example` i dostosuj wartości
+
+## Inicjalizacja Bazy Danych
+
+Po zainstalowaniu zależności i skonfigurowaniu zmiennych środowiskowych, należy zainicjalizować bazę danych:
+
 ```bash
-python main.py
+flask init-db
 ```
 
-Aplikacja będzie dostępna pod adresem http://localhost:8000
+Ta komenda utworzy wszystkie niezbędne tabele w bazie danych. Możesz ją uruchomić ponownie w dowolnym momencie, jeśli potrzebujesz odtworzyć strukturę bazy danych.
 
-## Struktura projektu
+## Uruchomienie Aplikacji
 
-```
-webowy-asystent-spizarni/
-├── main.py              # Główny plik aplikacji
-├── models.py            # Modele danych
-├── database.py          # Konfiguracja bazy danych
-├── logging_config.py    # Konfiguracja logowania
-├── requirements.txt     # Zależności projektu
-├── static/             # Pliki statyczne (CSS, JS, obrazy)
-├── templates/          # Szablony HTML
-│   └── paragony/      # Szablony dla funkcjonalności paragonów
-├── uploads/           # Katalog na przesłane pliki
-└── logs/              # Katalog na pliki logów
-```
-
-## Rozwój
-
-1. Utwórz nową gałąź dla swojej funkcjonalności:
+1. Uruchom serwer deweloperski:
 ```bash
-git checkout -b feature/nazwa-funkcjonalnosci
+uvicorn main:app --reload
 ```
 
-2. Wprowadź zmiany i zatwierdź je:
-```bash
-git add .
-git commit -m "Dodano nową funkcjonalność"
+2. Otwórz przeglądarkę i przejdź pod adres:
+```
+http://localhost:8000
 ```
 
-3. Wypchnij zmiany do repozytorium:
-```bash
-git push origin feature/nazwa-funkcjonalnosci
-```
+## Funkcje
+
+- Automatyczne przetwarzanie paragonów
+- Zarządzanie produktami w spiżarni
+- Śledzenie dat ważności produktów
+- Kategoryzacja produktów
+- Interfejs webowy
+
+## Wymagania Systemowe
+
+- Python 3.8+
+- SQLite (domyślnie) lub PostgreSQL
+- Ollama (dla przetwarzania paragonów)
 
 ## Licencja
 
-Ten projekt jest udostępniany na licencji MIT. Szczegóły znajdują się w pliku LICENSE. 
+MIT 
