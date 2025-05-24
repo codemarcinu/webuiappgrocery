@@ -7,6 +7,7 @@ from logging_config import logger
 from pathlib import Path
 from decimal import Decimal
 from product_mapper import ProductMapper
+from ollama_client import OllamaError, OllamaTimeoutError, OllamaConnectionError, OllamaModelError
 import json
 import asyncio
 
@@ -105,10 +106,50 @@ def process_receipt_task(self, paragon_id: int):
             
             return {"status": "success", "paragon_id": paragon_id, "message": "Receipt processed successfully with local OCR and LLM"}
             
-        except Exception as e:
-            # Update status to error
+        except OllamaConnectionError as e:
+            # Handle Ollama connection issues
             paragon.status_przetwarzania = StatusParagonu.PRZETWORZONY_BLAD
-            paragon.status_szczegolowy = f"Błąd: {str(e)}"
+            paragon.status_szczegolowy = "Błąd połączenia z usługą Ollama. Sprawdź, czy usługa jest uruchomiona."
+            paragon.blad_przetwarzania = str(e)
+            paragon.data_przetworzenia = datetime.now()
+            db.commit()
+            logger.error(f"Ollama connection error for receipt {paragon_id}: {str(e)}", exc_info=True)
+            raise
+            
+        except OllamaModelError as e:
+            # Handle model availability issues
+            paragon.status_przetwarzania = StatusParagonu.PRZETWORZONY_BLAD
+            paragon.status_szczegolowy = "Błąd modelu Ollama. Sprawdź konfigurację i dostępność modelu."
+            paragon.blad_przetwarzania = str(e)
+            paragon.data_przetworzenia = datetime.now()
+            db.commit()
+            logger.error(f"Ollama model error for receipt {paragon_id}: {str(e)}", exc_info=True)
+            raise
+            
+        except OllamaTimeoutError as e:
+            # Handle timeout issues
+            paragon.status_przetwarzania = StatusParagonu.PRZETWORZONY_BLAD
+            paragon.status_szczegolowy = "Przekroczono czas oczekiwania na odpowiedź Ollama. Spróbuj ponownie później."
+            paragon.blad_przetwarzania = str(e)
+            paragon.data_przetworzenia = datetime.now()
+            db.commit()
+            logger.error(f"Ollama timeout error for receipt {paragon_id}: {str(e)}", exc_info=True)
+            raise
+            
+        except OllamaError as e:
+            # Handle other Ollama-related errors
+            paragon.status_przetwarzania = StatusParagonu.PRZETWORZONY_BLAD
+            paragon.status_szczegolowy = "Wystąpił błąd podczas komunikacji z Ollama."
+            paragon.blad_przetwarzania = str(e)
+            paragon.data_przetworzenia = datetime.now()
+            db.commit()
+            logger.error(f"Ollama error for receipt {paragon_id}: {str(e)}", exc_info=True)
+            raise
+            
+        except Exception as e:
+            # Handle all other errors
+            paragon.status_przetwarzania = StatusParagonu.PRZETWORZONY_BLAD
+            paragon.status_szczegolowy = f"Wystąpił nieoczekiwany błąd podczas przetwarzania."
             paragon.blad_przetwarzania = str(e)
             paragon.data_przetworzenia = datetime.now()
             db.commit()
