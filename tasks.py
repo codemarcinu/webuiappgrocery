@@ -12,7 +12,8 @@ from database import SessionLocal
 from models import Paragon, StatusParagonu, Produkt, KategoriaProduktu, StatusMapowania, LogBledow, PoziomLogu
 from receipt_processor import ReceiptProcessor
 from datetime import datetime
-from logging_config import logger
+import logging
+logger = logging.getLogger(__name__)
 from pathlib import Path
 from decimal import Decimal
 from product_mapper import ProductMapper

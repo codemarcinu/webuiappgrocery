@@ -6,7 +6,8 @@ import magic
 from fastapi import UploadFile, HTTPException
 from tenacity import retry, stop_after_attempt, wait_exponential
 import requests
-from logging_config import logger
+import logging
+logger = logging.getLogger(__name__)
 from config import get_settings
 from models import StatusParagonu, LogBledow, PoziomLogu
 from ollama_client import OllamaError, OllamaTimeoutError, OllamaConnectionError, ollama_generate

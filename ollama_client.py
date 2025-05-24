@@ -1,6 +1,6 @@
 from typing import Optional, Dict, Any
 from config import get_settings
-from logging_config import logger
+import logging
 from ollama import AsyncClient, Client, RequestError, ResponseError
 from user_activity_logger import user_activity_logger
 import aiohttp
@@ -11,6 +11,7 @@ from database import SessionLocal
 import json
 
 settings = get_settings()
+logger = logging.getLogger(__name__)
 
 class OllamaError(Exception):
     """Base exception for Ollama client errors"""
