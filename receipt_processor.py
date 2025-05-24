@@ -9,12 +9,14 @@ import requests
 from logging_config import logger
 from config import get_settings
 from models import StatusParagonu
-from ollama_client import OllamaError, OllamaTimeoutError, OllamaConnectionError
+from ollama_client import OllamaError, OllamaTimeoutError, OllamaConnectionError, ollama_generate
 from pydantic import BaseModel, Field, ValidationError, ConfigDict
 from datetime import date
 import uuid
 import pdf2image
 import tempfile
+import easyocr
+import json
 
 # Enable loading of truncated images
 ImageFile.LOAD_TRUNCATED_IMAGES = True
@@ -69,6 +71,10 @@ class ReceiptProcessor:
             'application/pdf': '.pdf'  # Add PDF support
         }
         self.max_file_size = settings.MAX_CONTENT_LENGTH
+        # Initialize EasyOCR reader for Polish language
+        logger.info("Initializing EasyOCR reader...")
+        self.ocr_reader = easyocr.Reader(['pl'])
+        logger.info("EasyOCR reader initialized successfully")
 
     async def validate_file(self, file: UploadFile) -> None:
         """Validate uploaded file"""
@@ -183,41 +189,51 @@ class ReceiptProcessor:
                 detail="Error saving file"
             )
 
+    def _extract_text_from_image(self, image_path: Path) -> str:
+        """
+        Extract text from image using EasyOCR
+        """
+        try:
+            logger.info(f"Starting OCR for image: {image_path}")
+            result = self.ocr_reader.readtext(str(image_path), detail=0, paragraph=True)
+            extracted_text = "\n".join(result)
+            logger.info(f"OCR completed successfully for {image_path}")
+            logger.debug(f"Extracted text:\n{extracted_text}")
+            return extracted_text
+        except Exception as e:
+            logger.error(f"Error during OCR for image {image_path}: {str(e)}", exc_info=True)
+            raise HTTPException(
+                status_code=500,
+                detail=f"Error during OCR processing: {str(e)}"
+            )
+
     @retry(
         stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=1, min=4, max=10),
         reraise=True
     )
     async def process_receipt(self, image_path: Path) -> Dict[str, Any]:
-        """Process receipt using Ollama API"""
+        """Process receipt using OCR and Ollama API"""
         try:
-            # Read image file
-            with open(image_path, "rb") as f:
-                image_data = f.read()
+            # Step 1: Extract text using OCR
+            extracted_text = self._extract_text_from_image(image_path)
+            
+            if not extracted_text.strip():
+                logger.warning(f"No text extracted from receipt: {image_path}")
+                raise ValueError("No text detected on receipt")
 
-            # Prepare request to Ollama
-            headers = {"Content-Type": "application/json"}
-            data = {
-                "model": settings.OLLAMA_MODEL,
-                "prompt": self._get_receipt_prompt(),
-                "images": [image_data.hex()]
-            }
-
-            # Send request to Ollama
-            response = requests.post(
-                f"{settings.OLLAMA_API_URL}/api/generate",
-                json=data,
-                headers=headers,
-                timeout=settings.OLLAMA_TIMEOUT
+            # Step 2: Process text with Ollama (Bielik)
+            prompt = self._get_receipt_prompt_for_text_input(extracted_text)
+            
+            llm_response = await ollama_generate(
+                prompt=prompt,
+                system="Jesteś pomocnym asystentem specjalizującym się w analizie tekstu z paragonów sklepowych i strukturyzowaniu go w formacie JSON."
             )
-            response.raise_for_status()
 
-            # Parse response
-            result = response.json()
-            if not result.get("response"):
+            if not llm_response:
                 raise ValueError("Empty response from Ollama")
 
-            return self._parse_ollama_response(result["response"])
+            return self._parse_ollama_response(llm_response)
 
         except requests.Timeout as e:
             logger.error(f"Timeout while processing receipt: {str(e)}", exc_info=True)
@@ -244,54 +260,65 @@ class ReceiptProcessor:
                 detail="Error processing receipt"
             )
 
-    def _get_receipt_prompt(self) -> str:
-        """Get the prompt for receipt processing"""
-        return """
-        Analyze this receipt image and extract the following information in JSON format. The response must strictly follow this structure:
-        {
-            "store_name": "Name of the store (required, non-empty string)",
-            "date": "Date of purchase in YYYY-MM-DD format (required)",
-            "total_amount": "Total amount paid (required, positive number)",
-            "items": [
-                {
-                    "name": "Product name (required, non-empty string)",
-                    "quantity": "Quantity (required, positive number)",
-                    "price": "Price per unit (required, positive number)",
-                    "total": "Total price for this item (required, positive number)",
-                    "category": "Suggested category (e.g., Spożywcze, Chemia, etc. Optional)"
-                }
-            ],
-            "tax_id": "Store's tax ID if visible (optional)",
-            "payment_method": "Payment method used (optional)"
-        }
+    def _get_receipt_prompt_for_text_input(self, receipt_text: str) -> str:
+        """Get the prompt for receipt processing with text input"""
+        return f"""
+Przeanalizuj poniższy tekst z paragonu sklepowego i wyekstrahuj informacje w formacie JSON. Odpowiedź musi ściśle przestrzegać tej struktury:
+{{
+    "store_name": "Nazwa sklepu (wymagane, niepusty ciąg znaków)",
+    "date": "Data zakupu w formacie YYYY-MM-DD (wymagane)",
+    "total_amount": "Całkowita zapłacona kwota (wymagane, liczba dodatnia)",
+    "items": [
+        {{
+            "name": "Nazwa produktu (wymagane, niepusty ciąg znaków)",
+            "quantity": "Ilość (wymagane, liczba dodatnia, domyślnie 1 jeśli nie określono inaczej)",
+            "price": "Cena za jednostkę (wymagane, liczba dodatnia)",
+            "total": "Całkowita cena za ten produkt (wymagane, liczba dodatnia)",
+            "category": "Sugerowana kategoria (opcjonalnie, np. Spożywcze, Chemia)"
+        }}
+    ],
+    "tax_id": "NIP sklepu jeśli widoczny (opcjonalnie)",
+    "payment_method": "Użyta metoda płatności (opcjonalnie)"
+}}
 
-        Important validation rules:
-        1. All numeric values (total_amount, quantity, price, total) must be positive numbers
-        2. The date must be in YYYY-MM-DD format
-        3. The items array must contain at least one item
-        4. All required fields must be present and non-empty
-        5. Optional fields (tax_id, payment_method, category) can be omitted if not found
-        """
+Ważne zasady walidacji:
+1. Wszystkie wartości numeryczne (total_amount, quantity, price, total) muszą być liczbami dodatnimi.
+2. Data musi być w formacie YYYY-MM-DD.
+3. Tablica 'items' musi zawierać przynajmniej jeden produkt.
+4. Wszystkie wymagane pola muszą być obecne i niepuste.
+5. Pola opcjonalne (tax_id, payment_method, category) mogą zostać pominięte, jeśli nie znaleziono.
+6. Jeśli ilość (quantity) nie jest jawnie podana dla produktu, przyjmij wartość 1.
+
+Oto tekst z paragonu do analizy:
+--- POCZĄTEK TEKSTU Z PARAGONU ---
+{receipt_text}
+--- KONIEC TEKSTU Z PARAGONU ---
+
+Zwróć tylko i wyłącznie kompletny obiekt JSON, bez żadnych dodatkowych komentarzy przed lub po nim.
+"""
 
     def _parse_ollama_response(self, response: str) -> Dict[str, Any]:
-        """Parse Ollama's response into structured data using Pydantic models"""
+        """Parse Ollama's response into structured data"""
         try:
-            # Basic JSON parsing
-            import json
+            # Remove markdown code block if present
+            if response.strip().startswith("```json"):
+                response = response.strip()[7:-3].strip()
+            elif response.strip().startswith("```"):
+                response = response.strip()[3:-3].strip()
+
+            # Parse JSON
             data = json.loads(response)
             
-            # Validate and convert data using Pydantic model
+            # Validate using Pydantic models
             validated_receipt = Receipt.model_validate(data)
-            
-            # Convert to dict for return
             return validated_receipt.model_dump()
             
         except json.JSONDecodeError as e:
-            logger.error(f"Invalid JSON response from Ollama: {str(e)}", exc_info=True)
-            raise ValueError("Invalid JSON response from Ollama")
+            logger.error(f"Invalid JSON response from Ollama: {str(e)}\nResponse: {response}", exc_info=True)
+            raise ValueError(f"Invalid JSON response from Ollama: {e}")
         except ValidationError as e:
-            logger.error(f"Validation error in Ollama response: {str(e)}", exc_info=True)
-            raise ValueError(f"Invalid receipt data structure: {str(e)}")
+            logger.error(f"Validation error in Ollama response: {str(e)}\nResponse: {response}", exc_info=True)
+            raise ValueError(f"Invalid receipt data structure: {e}")
         except Exception as e:
-            logger.error(f"Error parsing Ollama response: {str(e)}", exc_info=True)
-            raise ValueError("Error parsing receipt data") 
+            logger.error(f"Error parsing Ollama response: {str(e)}\nResponse: {response}", exc_info=True)
+            raise ValueError(f"Error parsing receipt data: {e}") 
