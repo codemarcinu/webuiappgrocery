@@ -1,6 +1,6 @@
 from pathlib import Path
 from typing import Optional, Dict, Any, List
-from PIL import Image
+from PIL import Image, ImageFile, UnidentifiedImageError
 import io
 import magic
 from fastapi import UploadFile, HTTPException
@@ -13,6 +13,9 @@ from ollama_client import OllamaError, OllamaTimeoutError, OllamaConnectionError
 from pydantic import BaseModel, Field, ValidationError, ConfigDict
 from datetime import date
 import uuid
+
+# Enable loading of truncated images
+ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 settings = get_settings()
 
@@ -117,23 +120,32 @@ class ReceiptProcessor:
             unique_filename = f"{uuid.uuid4()}{file_extension}"
             file_path = upload_dir / unique_filename
             
-            # Save file with proper format handling
-            if mime_type == 'image/png':
-                # For PNG, preserve transparency
-                img = Image.open(io.BytesIO(content))
-                img.save(file_path, "PNG")
-            else:
-                # For other formats, convert to RGB and save as JPEG
-                img = Image.open(io.BytesIO(content))
-                if img.mode in ('RGBA', 'LA'):
-                    background = Image.new('RGB', img.size, (255, 255, 255))
-                    background.paste(img, mask=img.split()[-1])
-                    img = background
-                elif img.mode != 'RGB':
-                    img = img.convert('RGB')
-                img.save(file_path, "JPEG", quality=95)
+            try:
+                # Save file with proper format handling
+                if mime_type == 'image/png':
+                    # For PNG, preserve transparency
+                    img = Image.open(io.BytesIO(content))
+                    img.save(file_path, "PNG")
+                else:
+                    # For other formats, convert to RGB and save as JPEG
+                    img = Image.open(io.BytesIO(content))
+                    if img.mode in ('RGBA', 'LA'):
+                        background = Image.new('RGB', img.size, (255, 255, 255))
+                        background.paste(img, mask=img.split()[-1])
+                        img = background
+                    elif img.mode != 'RGB':
+                        img = img.convert('RGB')
+                    img.save(file_path, "JPEG", quality=95)
+            except (UnidentifiedImageError, OSError) as img_err:
+                logger.error(f"Error processing image file {file.filename}: {str(img_err)}", exc_info=True)
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Invalid or corrupted image file: {str(img_err)}"
+                )
             
             return file_path
+        except HTTPException:
+            raise
         except Exception as e:
             logger.error(f"Error saving file: {str(e)}", exc_info=True)
             raise HTTPException(

@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Request, HTTPException, Depends
+from fastapi import FastAPI, Request, HTTPException, Depends, Form
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
@@ -16,8 +16,10 @@ from datetime import datetime
 from fastapi_csrf_jinja.middleware import FastAPICSRFJinjaMiddleware
 from fastapi_csrf_jinja.jinja_processor import csrf_token_processor
 from sqlalchemy.orm import Session
+from sqlmodel import Session, select
+from urllib.parse import unquote, quote
 
-from database import create_db_and_tables, SessionLocal
+from database import create_db_and_tables, SessionLocal, get_session
 from routes import paragony
 from logging_config import setup_logging, logger
 from models import Paragon, Produkt, StatusParagonu
@@ -80,9 +82,13 @@ templates.env.filters["from_json"] = from_json
 
 # Template context dependency
 async def get_template_context(request: Request) -> Dict[str, Any]:
+    """Get common template context"""
+    flash_msg_raw = request.cookies.get('flash_msg')
+    flash_msg = unquote(flash_msg_raw) if flash_msg_raw else None
     return {
         "request": request,
-        "today": datetime.now().strftime('%Y-%m-%d')
+        "today": datetime.now().strftime('%Y-%m-%d'),
+        "flash_msg": flash_msg
     }
 
 # Include routers
@@ -210,12 +216,12 @@ async def dodaj_do_spizarni(request: Request, paragon_id: int):
         paragon = db.query(Paragon).get(paragon_id)
         if not paragon:
             response = RedirectResponse(url="/spizarnia", status_code=303)
-            response.set_cookie('flash_msg', 'Paragon nie znaleziony!')
+            response.set_cookie('flash_msg', quote('Paragon nie znaleziony!'))
             return response
             
         if paragon.status_przetwarzania != StatusParagonu.PRZETWORZONY_OK:
             response = RedirectResponse(url="/spizarnia", status_code=303)
-            response.set_cookie('flash_msg', 'Paragon nie został jeszcze przetworzony!')
+            response.set_cookie('flash_msg', quote('Paragon nie został jeszcze przetworzony!'))
             return response
             
         # Get products from the receipt
@@ -242,7 +248,7 @@ async def dodaj_do_spizarni(request: Request, paragon_id: int):
         db.commit()
         
         response = RedirectResponse(url="/spizarnia", status_code=303)
-        response.set_cookie('flash_msg', 'Produkty zostały dodane do spiżarni!')
+        response.set_cookie('flash_msg', quote('Produkty zostały dodane do spiżarni!'))
         return response
     finally:
         db.close()

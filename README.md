@@ -62,6 +62,7 @@ http://localhost:8000
 - Python 3.8+
 - SQLite (domyślnie) lub PostgreSQL
 - Ollama (dla przetwarzania paragonów)
+- Redis (dla Celery - przetwarzania w tle)
 
 ## Licencja
 

@@ -23,6 +23,7 @@ from tasks import process_receipt_task
 from forms import DodajParagonForm, EdytujProduktForm
 from wtforms import ValidationError
 from product_mapper import ProductMapper
+from urllib.parse import quote, unquote
 
 router = APIRouter(prefix="/paragony", tags=["paragony"])
 templates = Jinja2Templates(directory="templates")
@@ -174,7 +175,7 @@ async def dodaj_paragon(request: Request, file: UploadFile = File(...), komentar
         
         # Set flash message
         response = RedirectResponse(url="/paragony", status_code=303)
-        response.set_cookie('flash_msg', 'Paragon został dodany i jest przetwarzany w tle.')
+        response.set_cookie('flash_msg', quote('Paragon został dodany i jest przetwarzany w tle.'))
         return response
         
     except Exception as e:
@@ -286,18 +287,16 @@ async def usun_paragon(request: Request, paragon_id: int):
     with get_session() as db:
         paragon = await _get_paragon_or_404(db, paragon_id)
         
-        # Get file path before deleting from database
-        file_path = Path(paragon.sciezka_pliku_na_serwerze)
+        # Delete file first
+        if paragon.sciezka_pliku_na_serwerze:
+            await _delete_paragon_file(Path(paragon.sciezka_pliku_na_serwerze))
         
-        # Delete from database first
+        # Delete record
         db.delete(paragon)
         db.commit()
         
-        # Try to delete the physical file
-        await _delete_paragon_file(file_path)
-        
         response = RedirectResponse(url="/paragony", status_code=303)
-        response.set_cookie('flash_msg', 'Paragon został usunięty!')
+        response.set_cookie('flash_msg', quote('Paragon został usunięty!'))
         return response
 
 @router.get("/{paragon_id}/mapowanie", response_class=HTMLResponse)
