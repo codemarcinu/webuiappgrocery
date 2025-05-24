@@ -205,7 +205,7 @@ async def podglad_paragonu(request: Request, paragon_id: int):
             }
         )
 
-@router.get("/status/{paragon_id}")
+@router.get("/status/{paragon_id}", name="paragony.status_przetwarzania")
 async def status_przetwarzania(paragon_id: int):
     """Get receipt processing status"""
     with get_session() as db:
