@@ -44,6 +44,7 @@ class Produkt(SQLModel, table=True):
     data_waznosci: Optional[datetime] = None
     paragon_id: Optional[int] = Field(foreign_key="paragon.id", index=True, default=None)
     data_dodania: datetime = Field(default_factory=datetime.utcnow, index=True)
+    data_aktualizacji: datetime = Field(default_factory=datetime.utcnow, index=True)
     
     # Quantity fields
     ilosc_na_paragonie: Optional[int] = Field(default=1)  # Quantity on receipt

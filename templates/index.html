@@ -1,120 +1,168 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="mdc-layout-grid">
-    <div class="mdc-layout-grid__inner">
-        <!-- Welcome Card -->
-        <div class="mdc-layout-grid__cell mdc-layout-grid__cell--span-12">
-            <div class="mdc-card">
-                <div class="mdc-card__primary">
-                    <h1 class="mdc-typography--headline4">Witaj w Asystencie Spiżarni!</h1>
-                    <h2 class="mdc-typography--headline6">Zarządzaj swoją spiżarnią inteligentnie</h2>
+<div class="container">
+    <!-- Welcome Section -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <h1 class="display-4">Witaj w Asystencie Spiżarni!</h1>
+                    <p class="lead">Zarządzaj swoją spiżarnią inteligentnie</p>
                 </div>
             </div>
         </div>
+    </div>
 
-        <!-- Quick Actions -->
-        <div class="mdc-layout-grid__cell mdc-layout-grid__cell--span-12">
-            <h2 class="mdc-typography--headline5">Szybkie akcje</h2>
-            <div class="mdc-layout-grid__inner">
-                <!-- Add Receipt -->
-                <div class="mdc-layout-grid__cell mdc-layout-grid__cell--span-4">
-                    <div class="mdc-card">
-                        <div class="mdc-card__primary-action">
-                            <div class="mdc-card__media mdc-card__media--16-9">
-                                <div class="mdc-card__media-content">
-                                    <span class="material-icons" style="font-size: 48px;">receipt</span>
-                                </div>
-                            </div>
-                            <div class="mdc-card__primary">
-                                <h2 class="mdc-typography--headline6">Dodaj paragon</h2>
-                                <h3 class="mdc-typography--subtitle2">Skanuj i analizuj paragony</h3>
-                            </div>
-                        </div>
-                        <div class="mdc-card__actions">
-                            <div class="mdc-card__action-buttons">
-                                <a href="/paragony/dodaj" class="mdc-button mdc-card__action mdc-card__action--button">
-                                    <div class="mdc-button__ripple"></div>
-                                    <span class="mdc-button__label">Dodaj</span>
-                                </a>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- View Pantry -->
-                <div class="mdc-layout-grid__cell mdc-layout-grid__cell--span-4">
-                    <div class="mdc-card">
-                        <div class="mdc-card__primary-action">
-                            <div class="mdc-card__media mdc-card__media--16-9">
-                                <div class="mdc-card__media-content">
-                                    <span class="material-icons" style="font-size: 48px;">kitchen</span>
-                                </div>
-                            </div>
-                            <div class="mdc-card__primary">
-                                <h2 class="mdc-typography--headline6">Spiżarnia</h2>
-                                <h3 class="mdc-typography--subtitle2">Przeglądaj i zarządzaj produktami</h3>
-                            </div>
-                        </div>
-                        <div class="mdc-card__actions">
-                            <div class="mdc-card__action-buttons">
-                                <a href="/spizarnia" class="mdc-button mdc-card__action mdc-card__action--button">
-                                    <div class="mdc-button__ripple"></div>
-                                    <span class="mdc-button__label">Przeglądaj</span>
-                                </a>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Get Suggestions -->
-                <div class="mdc-layout-grid__cell mdc-layout-grid__cell--span-4">
-                    <div class="mdc-card">
-                        <div class="mdc-card__primary-action">
-                            <div class="mdc-card__media mdc-card__media--16-9">
-                                <div class="mdc-card__media-content">
-                                    <span class="material-icons" style="font-size: 48px;">lightbulb</span>
-                                </div>
-                            </div>
-                            <div class="mdc-card__primary">
-                                <h2 class="mdc-typography--headline6">Sugestie</h2>
-                                <h3 class="mdc-typography--subtitle2">Otrzymaj inteligentne podpowiedzi</h3>
-                            </div>
-                        </div>
-                        <div class="mdc-card__actions">
-                            <div class="mdc-card__action-buttons">
-                                <a href="/sugestie" class="mdc-button mdc-card__action mdc-card__action--button">
-                                    <div class="mdc-button__ripple"></div>
-                                    <span class="mdc-button__label">Sprawdź</span>
-                                </a>
-                            </div>
-                        </div>
-                    </div>
+    <!-- Quick Stats -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        <i class="fas fa-box"></i> Produkty
+                    </h5>
+                    <p class="display-6">{{ stats.total_products }}</p>
                 </div>
             </div>
         </div>
+        <div class="col-md-3">
+            <div class="card bg-warning text-white shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        <i class="fas fa-exclamation-triangle"></i> Bliskie terminy
+                    </h5>
+                    <p class="display-6">{{ stats.expiring_soon }}</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-info text-white shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        <i class="fas fa-receipt"></i> Paragony
+                    </h5>
+                    <p class="display-6">{{ stats.total_receipts }}</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-success text-white shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        <i class="fas fa-chart-line"></i> Oszczędności
+                    </h5>
+                    <p class="display-6">{{ stats.total_savings }} zł</p>
+                </div>
+            </div>
+        </div>
+    </div>
 
+    <!-- Quick Actions -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <h2 class="h3 mb-3">Szybkie akcje</h2>
+        </div>
+        <div class="col-md-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-body text-center">
+                    <i class="fas fa-receipt fa-3x text-primary mb-3"></i>
+                    <h3 class="h5">Dodaj paragon</h3>
+                    <p class="text-muted">Skanuj i analizuj paragony</p>
+                    <a href="/paragony/dodaj" class="btn btn-primary">
+                        <i class="fas fa-plus"></i> Dodaj
+                    </a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-body text-center">
+                    <i class="fas fa-utensils fa-3x text-primary mb-3"></i>
+                    <h3 class="h5">Spiżarnia</h3>
+                    <p class="text-muted">Przeglądaj i zarządzaj produktami</p>
+                    <a href="/spizarnia" class="btn btn-primary">
+                        <i class="fas fa-search"></i> Przeglądaj
+                    </a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-body text-center">
+                    <i class="fas fa-lightbulb fa-3x text-primary mb-3"></i>
+                    <h3 class="h5">Sugestie</h3>
+                    <p class="text-muted">Otrzymaj inteligentne podpowiedzi</p>
+                    <a href="/sugestie" class="btn btn-primary">
+                        <i class="fas fa-magic"></i> Sprawdź
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Activity and Expiring Products -->
+    <div class="row">
         <!-- Recent Activity -->
-        <div class="mdc-layout-grid__cell mdc-layout-grid__cell--span-12">
-            <h2 class="mdc-typography--headline5">Ostatnia aktywność</h2>
-            <div class="mdc-card">
-                <div class="mdc-card__primary">
-                    <div class="mdc-list">
-                        {% if recent_activity %}
+        <div class="col-md-6">
+            <div class="card shadow-sm">
+                <div class="card-header">
+                    <h3 class="h5 mb-0">
+                        <i class="fas fa-history"></i> Ostatnia aktywność
+                    </h3>
+                </div>
+                <div class="card-body">
+                    {% if recent_activity %}
+                        <div class="list-group list-group-flush">
                             {% for activity in recent_activity %}
-                                <div class="mdc-list-item">
-                                    <span class="material-icons mdc-list-item__graphic">{{ activity.icon }}</span>
-                                    <span class="mdc-list-item__text">{{ activity.text }}</span>
-                                    <span class="mdc-list-item__meta">{{ activity.time }}</span>
+                                <div class="list-group-item">
+                                    <div class="d-flex w-100 justify-content-between">
+                                        <h6 class="mb-1">
+                                            <i class="fas {{ activity.icon }}"></i>
+                                            {{ activity.text }}
+                                        </h6>
+                                        <small class="text-muted">{{ activity.time }}</small>
+                                    </div>
                                 </div>
                             {% endfor %}
-                        {% else %}
-                            <div class="mdc-list-item">
-                                <span class="material-icons mdc-list-item__graphic">info</span>
-                                <span class="mdc-list-item__text">Brak ostatniej aktywności</span>
-                            </div>
-                        {% endif %}
-                    </div>
+                        </div>
+                    {% else %}
+                        <p class="text-muted mb-0">
+                            <i class="fas fa-info-circle"></i> Brak ostatniej aktywności
+                        </p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Expiring Products -->
+        <div class="col-md-6">
+            <div class="card shadow-sm">
+                <div class="card-header">
+                    <h3 class="h5 mb-0">
+                        <i class="fas fa-exclamation-triangle"></i> Produkty bliskie terminu
+                    </h3>
+                </div>
+                <div class="card-body">
+                    {% if expiring_products %}
+                        <div class="list-group list-group-flush">
+                            {% for product in expiring_products %}
+                                <div class="list-group-item">
+                                    <div class="d-flex w-100 justify-content-between">
+                                        <h6 class="mb-1">{{ product.nazwa }}</h6>
+                                        <small class="text-muted">Ważny do: {{ product.data_waznosci.strftime('%d.%m.%Y') }}</small>
+                                    </div>
+                                    <small class="text-muted">
+                                        <i class="fas fa-box"></i> {{ product.ilosc }} {{ product.jednostka }}
+                                    </small>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <p class="text-muted mb-0">
+                            <i class="fas fa-check-circle"></i> Brak produktów bliskich terminu
+                        </p>
+                    {% endif %}
                 </div>
             </div>
         </div>

@@ -12,12 +12,13 @@ from typing import Optional, Dict, Any
 import os
 from contextlib import asynccontextmanager
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 from fastapi_csrf_jinja.middleware import FastAPICSRFJinjaMiddleware
 from fastapi_csrf_jinja.jinja_processor import csrf_token_processor
 from sqlalchemy.orm import Session
 from sqlmodel import Session, select
 from urllib.parse import unquote, quote
+from sqlalchemy import func
 
 from database import create_db_and_tables, SessionLocal, get_session
 from routes import paragony
@@ -96,13 +97,68 @@ app.include_router(paragony.router)
 
 @app.get("/")
 async def root(request: Request, context: Dict[str, Any] = Depends(get_template_context)):
-    """Root endpoint - shows list of receipts"""
+    """Root endpoint - shows dashboard with statistics and recent activity"""
     db = SessionLocal()
     try:
-        paragony = db.query(Paragon).order_by(Paragon.data_wyslania.desc()).all()
+        # Get statistics
+        total_products = db.query(Produkt).filter(Produkt.paragon_id.is_(None)).count()
+        total_receipts = db.query(Paragon).count()
+        
+        # Get products expiring soon (within 7 days)
+        today = datetime.now()
+        week_later = today + timedelta(days=7)
+        expiring_products = db.query(Produkt).filter(
+            Produkt.paragon_id.is_(None),
+            Produkt.data_waznosci.isnot(None),
+            Produkt.data_waznosci <= week_later,
+            Produkt.data_waznosci >= today
+        ).order_by(Produkt.data_waznosci).limit(5).all()
+        
+        # Calculate total savings (sum of all product prices)
+        total_savings = db.query(func.sum(Produkt.cena)).filter(
+            Produkt.paragon_id.is_(None)
+        ).scalar() or 0
+        
+        # Get recent activity
+        recent_activity = []
+        
+        # Add recent receipts
+        recent_receipts = db.query(Paragon).order_by(Paragon.data_wyslania.desc()).limit(3).all()
+        for receipt in recent_receipts:
+            recent_activity.append({
+                'icon': 'receipt',
+                'text': f'Dodano paragon: {receipt.nazwa_pliku}',
+                'time': receipt.data_wyslania.strftime('%d.%m.%Y %H:%M')
+            })
+        
+        # Add recent product updates
+        recent_products = db.query(Produkt).filter(
+            Produkt.paragon_id.is_(None)
+        ).order_by(Produkt.data_aktualizacji.desc()).limit(3).all()
+        for product in recent_products:
+            recent_activity.append({
+                'icon': 'edit',
+                'text': f'Zaktualizowano produkt: {product.nazwa}',
+                'time': product.data_aktualizacji.strftime('%d.%m.%Y %H:%M')
+            })
+        
+        # Sort activities by time
+        recent_activity.sort(key=lambda x: datetime.strptime(x['time'], '%d.%m.%Y %H:%M'), reverse=True)
+        recent_activity = recent_activity[:5]  # Keep only 5 most recent activities
+        
         return templates.TemplateResponse(
-            "paragony/lista.html",
-            {**context, "paragony": paragony}
+            "index.html",
+            {
+                **context,
+                "stats": {
+                    "total_products": total_products,
+                    "expiring_soon": len(expiring_products),
+                    "total_receipts": total_receipts,
+                    "total_savings": round(total_savings, 2)
+                },
+                "expiring_products": expiring_products,
+                "recent_activity": recent_activity
+            }
         )
     finally:
         db.close()
@@ -186,6 +242,7 @@ async def edytuj_produkt_post(request: Request, produkt_id: int):
         produkt.aktualna_ilosc = int(form.get("ilosc", produkt.aktualna_ilosc))
         data_waznosci = form.get("data_waznosci")
         produkt.data_waznosci = data_waznosci if data_waznosci else None
+        produkt.data_aktualizacji = datetime.utcnow()
         db.commit()
         response = RedirectResponse(url="/spizarnia", status_code=303)
         response.set_cookie('flash_msg', 'Produkt został zaktualizowany!')
