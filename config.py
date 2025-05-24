@@ -6,6 +6,10 @@ from functools import lru_cache
 from db_logger import log_to_db
 from models import LogBledow, PoziomLogu
 import json
+from database import create_db_and_tables
+
+# Create database tables before any logging
+create_db_and_tables()
 
 class Settings(BaseSettings):
     # Application
@@ -87,9 +91,11 @@ class Settings(BaseSettings):
             )
             raise
 
+@lru_cache()
 def get_settings() -> Settings:
-    """Get application settings"""
+    """Get application settings with caching"""
     try:
+        settings = Settings()
         log_to_db(
             PoziomLogu.INFO,
             "config",
@@ -97,19 +103,7 @@ def get_settings() -> Settings:
             "Pobieranie konfiguracji aplikacji",
             json.dumps({"status": "started"})
         )
-        
-        settings = Settings()
-        
-        log_to_db(
-            PoziomLogu.INFO,
-            "config",
-            "get_settings",
-            "Konfiguracja aplikacji pobrana pomyślnie",
-            json.dumps({"status": "completed"})
-        )
-        
         return settings
-        
     except Exception as e:
         log_to_db(
             PoziomLogu.ERROR,

@@ -10,7 +10,6 @@ from db_logger import log_to_db
 from database import SessionLocal
 import json
 
-settings = get_settings()
 logger = logging.getLogger(__name__)
 
 class OllamaError(Exception):
@@ -37,6 +36,7 @@ async def verify_ollama_connection() -> bool:
         bool: True if Ollama is accessible, False otherwise
     """
     try:
+        settings = get_settings()
         async with aiohttp.ClientSession() as session:
             async with session.get(f"{settings.OLLAMA_API_URL}/api/tags", timeout=5) as response:
                 return response.status == 200
@@ -52,6 +52,7 @@ async def verify_model_availability() -> bool:
         bool: True if model is available, False otherwise
     """
     try:
+        settings = get_settings()
         client = Client(host=settings.OLLAMA_API_URL)
         models = client.list()
         is_available = any(model['name'] == settings.OLLAMA_MODEL for model in models['models'])
@@ -116,6 +117,7 @@ async def ollama_generate(
         OllamaTimeoutError: When request times out
         OllamaModelError: When model is not available or fails
     """
+    settings = get_settings()
     timeout_value = timeout or settings.OLLAMA_TIMEOUT
     
     try:

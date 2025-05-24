@@ -31,4 +31,6 @@ click>=8.0.1
 ollama==0.4.8
 wtforms>=3.0.0
 aiohttp>=3.11.18  # Required for Ollama client connection verification
-pytesseract 
+pytesseract
+fastapi-csrf-jinja==0.1.3
+pytz 

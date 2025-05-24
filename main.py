@@ -29,12 +29,12 @@ from sqlalchemy import func
 import logging
 
 from database import create_db_and_tables, SessionLocal, get_session
+create_db_and_tables()  # AUTOFIX: ensure tables exist before any logging or config
 from routes import paragony
 from routes import logi
 from models import Paragon, Produkt, StatusParagonu, LogBledow, PoziomLogu
 from config import get_settings
 
-settings = get_settings()
 logger = logging.getLogger(__name__)
 
 @asynccontextmanager
@@ -354,6 +354,8 @@ def log_to_db(poziom: PoziomLogu, modul: str, funkcja: str, komunikat: str, szcz
 @app.on_event("startup")
 async def startup_event():
     """Initialize application on startup"""
+    global settings
+    settings = get_settings()
     try:
         log_to_db(
             PoziomLogu.INFO,
