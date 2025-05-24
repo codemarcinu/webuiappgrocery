@@ -9,6 +9,19 @@ from database import SessionLocal
 import traceback
 import sys
 
+def log_to_db(poziom: PoziomLogu, modul: str, funkcja: str, komunikat: str, szczegoly: str = None):
+    """Helper function to log to database"""
+    with SessionLocal() as db:
+        log = LogBledow(
+            poziom=poziom,
+            modul_aplikacji=modul,
+            funkcja=funkcja,
+            komunikat_bledu=komunikat,
+            szczegoly_techniczne=szczegoly
+        )
+        db.add(log)
+        db.commit()
+
 class UserActivityLogger:
     def __init__(self):
         self.logger = logging.getLogger("user_activity")
@@ -82,16 +95,13 @@ class UserActivityLogger:
         
         # Log to database
         try:
-            with SessionLocal() as db:
-                log_entry = LogBledow(
-                    poziom=level,
-                    modul_aplikacji=context.get("module", "unknown"),
-                    funkcja=context.get("function", "unknown"),
-                    komunikat_bledu=str(error),
-                    szczegoly_techniczne=json.dumps(error_data)
-                )
-                db.add(log_entry)
-                db.commit()
+            log_to_db(
+                level,
+                "user_activity_logger",
+                "log_error",
+                f"Błąd: {str(error)}",
+                json.dumps(error_data)
+            )
         except Exception as e:
             self.logger.error(f"Failed to log error to database: {str(e)}")
 

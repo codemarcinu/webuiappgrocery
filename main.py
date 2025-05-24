@@ -26,8 +26,9 @@ from sqlalchemy import func
 
 from database import create_db_and_tables, SessionLocal, get_session
 from routes import paragony
+from routes import logi
 from logging_config import setup_logging, logger
-from models import Paragon, Produkt, StatusParagonu
+from models import Paragon, Produkt, StatusParagonu, LogBledow, PoziomLogu
 from config import get_settings
 
 settings = get_settings()
@@ -98,6 +99,7 @@ async def get_template_context(request: Request) -> Dict[str, Any]:
 
 # Include routers
 app.include_router(paragony.router)
+app.include_router(logi.router)
 
 @app.get("/")
 async def root(request: Request, context: Dict[str, Any] = Depends(get_template_context)):
@@ -335,6 +337,91 @@ async def statystyki(
         "statystyki.html",
         {**context}
     )
+
+def log_to_db(poziom: PoziomLogu, modul: str, funkcja: str, komunikat: str, szczegoly: str = None):
+    """Helper function to log to database"""
+    with SessionLocal() as db:
+        log = LogBledow(
+            poziom=poziom,
+            modul_aplikacji=modul,
+            funkcja=funkcja,
+            komunikat_bledu=komunikat,
+            szczegoly_techniczne=szczegoly
+        )
+        db.add(log)
+        db.commit()
+
+@app.on_event("startup")
+async def startup_event():
+    """Initialize application on startup"""
+    try:
+        log_to_db(
+            PoziomLogu.INFO,
+            "main",
+            "startup_event",
+            "Inicjalizacja aplikacji",
+            json.dumps({"status": "started"})
+        )
+        
+        # Startup code here...
+        
+        log_to_db(
+            PoziomLogu.INFO,
+            "main",
+            "startup_event",
+            "Aplikacja zainicjalizowana pomyślnie",
+            json.dumps({"status": "completed"})
+        )
+        
+    except Exception as e:
+        log_to_db(
+            PoziomLogu.ERROR,
+            "main",
+            "startup_event",
+            "Błąd inicjalizacji aplikacji",
+            json.dumps({
+                "error_type": type(e).__name__,
+                "error_message": str(e),
+                "traceback": str(e.__traceback__)
+            })
+        )
+        raise
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Cleanup on application shutdown"""
+    try:
+        log_to_db(
+            PoziomLogu.INFO,
+            "main",
+            "shutdown_event",
+            "Zamykanie aplikacji",
+            json.dumps({"status": "started"})
+        )
+        
+        # Shutdown code here...
+        
+        log_to_db(
+            PoziomLogu.INFO,
+            "main",
+            "shutdown_event",
+            "Aplikacja zamknięta pomyślnie",
+            json.dumps({"status": "completed"})
+        )
+        
+    except Exception as e:
+        log_to_db(
+            PoziomLogu.ERROR,
+            "main",
+            "shutdown_event",
+            "Błąd zamykania aplikacji",
+            json.dumps({
+                "error_type": type(e).__name__,
+                "error_message": str(e),
+                "traceback": str(e.__traceback__)
+            })
+        )
+        raise
 
 if __name__ == "__main__":
     uvicorn.run(

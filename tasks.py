@@ -4,7 +4,7 @@ multiprocessing.set_start_method('spawn', force=True)
 
 from celery import Celery, shared_task
 from database import SessionLocal
-from models import Paragon, StatusParagonu, Produkt, KategoriaProduktu, StatusMapowania
+from models import Paragon, StatusParagonu, Produkt, KategoriaProduktu, StatusMapowania, LogBledow, PoziomLogu
 from receipt_processor import ReceiptProcessor
 from datetime import datetime
 from logging_config import logger
@@ -35,6 +35,19 @@ celery.conf.update(
 
 receipt_processor = ReceiptProcessor()
 
+def log_to_db(poziom: PoziomLogu, modul: str, funkcja: str, komunikat: str, szczegoly: str = None):
+    """Helper function to log to database"""
+    with SessionLocal() as db:
+        log = LogBledow(
+            poziom=poziom,
+            modul_aplikacji=modul,
+            funkcja=funkcja,
+            komunikat_bledu=komunikat,
+            szczegoly_techniczne=szczegoly
+        )
+        db.add(log)
+        db.commit()
+
 @shared_task(name='process_receipt', bind=True)
 def process_receipt_task(self, paragon_id: int):
     """Celery task for processing a receipt"""
@@ -42,10 +55,12 @@ def process_receipt_task(self, paragon_id: int):
     try:
         paragon = db.query(Paragon).get(paragon_id)
         if not paragon:
-            logger.error(f"Paragon {paragon_id} not found")
-            user_activity_logger.log_error(
-                Exception(f"Paragon {paragon_id} not found"),
-                {"module": "tasks", "function": "process_receipt_task", "paragon_id": paragon_id}
+            log_to_db(
+                PoziomLogu.ERROR,
+                "tasks",
+                "process_receipt_task",
+                f"Paragon {paragon_id} not found",
+                json.dumps({"paragon_id": paragon_id})
             )
             return
         
@@ -53,21 +68,34 @@ def process_receipt_task(self, paragon_id: int):
         paragon.status_przetwarzania = StatusParagonu.PRZETWARZANY_OCR
         paragon.status_szczegolowy = "Rozpoczęto przetwarzanie OCR..."
         db.commit()
-        logger.info(f"Rozpoczęto OCR dla paragonu {paragon_id}")
-        user_activity_logger.log_receipt_processing(
-            paragon_id,
-            "OCR_START",
-            {"status": "started", "file_path": paragon.sciezka_pliku_na_serwerze}
+        
+        log_to_db(
+            PoziomLogu.INFO,
+            "tasks",
+            "process_receipt_task",
+            f"Rozpoczęto OCR dla paragonu {paragon_id}",
+            json.dumps({
+                "paragon_id": paragon_id,
+                "file_path": paragon.sciezka_pliku_na_serwerze,
+                "status": "started"
+            })
         )
         
         try:
             # Process the receipt using ReceiptProcessor (now async)
             paragon.status_szczegolowy = "Wykonywanie OCR i ekstrakcja tekstu..."
             db.commit()
-            user_activity_logger.log_receipt_processing(
-                paragon_id,
-                "OCR_IN_PROGRESS",
-                {"status": "processing", "stage": "text_extraction"}
+            
+            log_to_db(
+                PoziomLogu.INFO,
+                "tasks",
+                "process_receipt_task",
+                f"Wykonywanie OCR dla paragonu {paragon_id}",
+                json.dumps({
+                    "paragon_id": paragon_id,
+                    "stage": "text_extraction",
+                    "status": "processing"
+                })
             )
             
             result = asyncio.run(receipt_processor.process_receipt(Path(paragon.sciezka_pliku_na_serwerze)))
@@ -76,11 +104,17 @@ def process_receipt_task(self, paragon_id: int):
             paragon.status_przetwarzania = StatusParagonu.PRZETWARZANY_AI
             paragon.status_szczegolowy = "Strukturyzacja danych z OCR zakończona, przygotowywanie produktów..."
             db.commit()
-            logger.info(f"OCR zakończony dla paragonu {paragon_id}, rozpoczynam analizę AI")
-            user_activity_logger.log_receipt_processing(
-                paragon_id,
-                "OCR_COMPLETE",
-                {"status": "completed", "items_found": len(result.get("items", []))}
+            
+            log_to_db(
+                PoziomLogu.INFO,
+                "tasks",
+                "process_receipt_task",
+                f"OCR zakończony dla paragonu {paragon_id}, rozpoczynam analizę AI",
+                json.dumps({
+                    "paragon_id": paragon_id,
+                    "items_found": len(result.get("items", [])),
+                    "status": "completed"
+                })
             )
             
             # Clear existing products for this receipt
@@ -92,6 +126,19 @@ def process_receipt_task(self, paragon_id: int):
             # Add new products from LLM result
             paragon.status_szczegolowy = "Dodawanie wykrytych produktów do bazy danych..."
             db.commit()
+            
+            log_to_db(
+                PoziomLogu.INFO,
+                "tasks",
+                "process_receipt_task",
+                f"Dodawanie produktów do bazy dla paragonu {paragon_id}",
+                json.dumps({
+                    "paragon_id": paragon_id,
+                    "stage": "adding_products",
+                    "status": "processing"
+                })
+            )
+            
             all_new_products = []
             for item_data in result.get("items", []):
                 kategoria_str = item_data.get("category")
@@ -110,14 +157,24 @@ def process_receipt_task(self, paragon_id: int):
                                 found_category = True
                                 break
                         if not found_category:
-                            logger.warning(f"Unknown category '{kategoria_str}' from LLM for product '{item_data['name']}'. Defaulting to INNE.")
+                            log_to_db(
+                                PoziomLogu.WARNING,
+                                "tasks",
+                                "process_receipt_task",
+                                f"Nieznana kategoria '{kategoria_str}' dla produktu '{item_data['name']}'",
+                                json.dumps({
+                                    "paragon_id": paragon_id,
+                                    "product_name": item_data['name'],
+                                    "category": kategoria_str
+                                })
+                            )
                 
                 new_product = Produkt(
                     nazwa=item_data['name'],
                     kategoria=produkt_kategoria,
                     cena=Decimal(str(item_data['price'])),
                     paragon_id=paragon.id,
-                    ilosc_na_paragonie=int(item_data.get('quantity', 1)),  # Default to 1 if not specified
+                    ilosc_na_paragonie=int(item_data.get('quantity', 1)),
                     aktualna_ilosc=0,
                     status_mapowania=StatusMapowania.OCZEKUJE
                 )
@@ -128,6 +185,20 @@ def process_receipt_task(self, paragon_id: int):
             # Call ProductMapper for mapping suggestions
             paragon.status_szczegolowy = "Generowanie sugestii mapowania produktów i kategorii..."
             db.commit()
+            
+            log_to_db(
+                PoziomLogu.INFO,
+                "tasks",
+                "process_receipt_task",
+                f"Generowanie sugestii mapowania dla paragonu {paragon_id}",
+                json.dumps({
+                    "paragon_id": paragon_id,
+                    "stage": "mapping_suggestions",
+                    "status": "processing",
+                    "products_count": len(all_new_products)
+                })
+            )
+            
             product_mapper = ProductMapper(session=db)
             product_mapper.process_receipt_products(all_new_products)
             
@@ -144,125 +215,140 @@ def process_receipt_task(self, paragon_id: int):
             paragon.status_szczegolowy = "Przetwarzanie zakończone pomyślnie. Wszystkie produkty zostały wykryte i skategoryzowane."
             paragon.data_przetworzenia = datetime.now()
             db.commit()
-            logger.info(f"Paragon {paragon_id} przetworzony pomyślnie")
-            user_activity_logger.log_receipt_processing(
-                paragon_id,
-                "PROCESSING_COMPLETE",
-                {
+            
+            log_to_db(
+                PoziomLogu.INFO,
+                "tasks",
+                "process_receipt_task",
+                f"Paragon {paragon_id} przetworzony pomyślnie",
+                json.dumps({
+                    "paragon_id": paragon_id,
                     "status": "success",
                     "products_count": len(all_new_products),
                     "store_name": result.get("store_name"),
                     "total_amount": str(result.get("total_amount"))
-                }
+                })
             )
             
             return {"status": "success", "paragon_id": paragon_id, "message": "Receipt processed successfully with local OCR and LLM"}
             
         except OllamaConnectionError as e:
-            # Handle Ollama connection issues
             paragon.status_przetwarzania = StatusParagonu.PRZETWORZONY_BLAD
             paragon.status_szczegolowy = "Błąd połączenia z usługą Ollama. Sprawdź, czy usługa jest uruchomiona."
             paragon.blad_przetwarzania = str(e)
             paragon.data_przetworzenia = datetime.now()
             db.commit()
-            logger.error(f"Ollama connection error for receipt {paragon_id}: {str(e)}", exc_info=True)
-            user_activity_logger.log_error(
-                e,
-                {
-                    "module": "tasks",
-                    "function": "process_receipt_task",
+            
+            log_to_db(
+                PoziomLogu.ERROR,
+                "tasks",
+                "process_receipt_task",
+                f"Błąd połączenia z Ollama dla paragonu {paragon_id}",
+                json.dumps({
                     "paragon_id": paragon_id,
-                    "error_type": "OllamaConnectionError"
-                }
+                    "error_type": "OllamaConnectionError",
+                    "error_message": str(e),
+                    "traceback": str(e.__traceback__)
+                })
             )
             raise
             
         except OllamaModelError as e:
-            # Handle model availability issues
             paragon.status_przetwarzania = StatusParagonu.PRZETWORZONY_BLAD
             paragon.status_szczegolowy = "Błąd modelu Ollama. Sprawdź konfigurację i dostępność modelu."
             paragon.blad_przetwarzania = str(e)
             paragon.data_przetworzenia = datetime.now()
             db.commit()
-            logger.error(f"Ollama model error for receipt {paragon_id}: {str(e)}", exc_info=True)
-            user_activity_logger.log_error(
-                e,
-                {
-                    "module": "tasks",
-                    "function": "process_receipt_task",
+            
+            log_to_db(
+                PoziomLogu.ERROR,
+                "tasks",
+                "process_receipt_task",
+                f"Błąd modelu Ollama dla paragonu {paragon_id}",
+                json.dumps({
                     "paragon_id": paragon_id,
-                    "error_type": "OllamaModelError"
-                }
+                    "error_type": "OllamaModelError",
+                    "error_message": str(e),
+                    "traceback": str(e.__traceback__)
+                })
             )
             raise
             
         except OllamaTimeoutError as e:
-            # Handle timeout issues
             paragon.status_przetwarzania = StatusParagonu.PRZETWORZONY_BLAD
             paragon.status_szczegolowy = "Przekroczono czas oczekiwania na odpowiedź Ollama. Spróbuj ponownie później."
             paragon.blad_przetwarzania = str(e)
             paragon.data_przetworzenia = datetime.now()
             db.commit()
-            logger.error(f"Ollama timeout error for receipt {paragon_id}: {str(e)}", exc_info=True)
-            user_activity_logger.log_error(
-                e,
-                {
-                    "module": "tasks",
-                    "function": "process_receipt_task",
+            
+            log_to_db(
+                PoziomLogu.ERROR,
+                "tasks",
+                "process_receipt_task",
+                f"Timeout Ollama dla paragonu {paragon_id}",
+                json.dumps({
                     "paragon_id": paragon_id,
-                    "error_type": "OllamaTimeoutError"
-                }
+                    "error_type": "OllamaTimeoutError",
+                    "error_message": str(e),
+                    "traceback": str(e.__traceback__)
+                })
             )
             raise
             
         except OllamaError as e:
-            # Handle other Ollama-related errors
             paragon.status_przetwarzania = StatusParagonu.PRZETWORZONY_BLAD
             paragon.status_szczegolowy = "Wystąpił błąd podczas komunikacji z Ollama."
             paragon.blad_przetwarzania = str(e)
             paragon.data_przetworzenia = datetime.now()
             db.commit()
-            logger.error(f"Ollama error for receipt {paragon_id}: {str(e)}", exc_info=True)
-            user_activity_logger.log_error(
-                e,
-                {
-                    "module": "tasks",
-                    "function": "process_receipt_task",
+            
+            log_to_db(
+                PoziomLogu.ERROR,
+                "tasks",
+                "process_receipt_task",
+                f"Błąd Ollama dla paragonu {paragon_id}",
+                json.dumps({
                     "paragon_id": paragon_id,
-                    "error_type": "OllamaError"
-                }
+                    "error_type": "OllamaError",
+                    "error_message": str(e),
+                    "traceback": str(e.__traceback__)
+                })
             )
             raise
             
         except Exception as e:
-            # Handle all other errors
             paragon.status_przetwarzania = StatusParagonu.PRZETWORZONY_BLAD
             paragon.status_szczegolowy = f"Wystąpił nieoczekiwany błąd podczas przetwarzania."
             paragon.blad_przetwarzania = str(e)
             paragon.data_przetworzenia = datetime.now()
             db.commit()
-            logger.error(f"Error processing receipt {paragon_id}: {str(e)}", exc_info=True)
-            user_activity_logger.log_error(
-                e,
-                {
-                    "module": "tasks",
-                    "function": "process_receipt_task",
+            
+            log_to_db(
+                PoziomLogu.ERROR,
+                "tasks",
+                "process_receipt_task",
+                f"Nieoczekiwany błąd przetwarzania paragonu {paragon_id}",
+                json.dumps({
                     "paragon_id": paragon_id,
-                    "error_type": "UnexpectedError"
-                }
+                    "error_type": type(e).__name__,
+                    "error_message": str(e),
+                    "traceback": str(e.__traceback__)
+                })
             )
             raise
             
     except Exception as e:
-        logger.error(f"Unexpected error in Celery task: {str(e)}", exc_info=True)
-        user_activity_logger.log_error(
-            e,
-            {
-                "module": "tasks",
-                "function": "process_receipt_task",
+        log_to_db(
+            PoziomLogu.ERROR,
+            "tasks",
+            "process_receipt_task",
+            f"Błąd w zadaniu Celery dla paragonu {paragon_id}",
+            json.dumps({
                 "paragon_id": paragon_id,
-                "error_type": "CeleryTaskError"
-            }
+                "error_type": type(e).__name__,
+                "error_message": str(e),
+                "traceback": str(e.__traceback__)
+            })
         )
         raise
     finally:

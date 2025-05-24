@@ -2,11 +2,25 @@ from typing import List, Dict, Any, Optional
 import json
 from thefuzz import process
 from sqlmodel import Session, select
-from models import Produkt, StatusMapowania
+from models import Produkt, StatusMapowania, LogBledow, PoziomLogu
+from database import SessionLocal
+
+def log_to_db(poziom: PoziomLogu, modul: str, funkcja: str, komunikat: str, szczegoly: str = None):
+    """Helper function to log to database"""
+    with SessionLocal() as db:
+        log = LogBledow(
+            poziom=poziom,
+            modul_aplikacji=modul,
+            funkcja=funkcja,
+            komunikat_bledu=komunikat,
+            szczegoly_techniczne=szczegoly
+        )
+        db.add(log)
+        db.commit()
 
 class ProductMapper:
-    def __init__(self, session: Session):
-        self.session = session
+    def __init__(self, session=None):
+        self.session = session or SessionLocal()
         self.fuzzy_threshold = 80  # Minimum similarity score to consider a match
 
     def find_suggestions(self, product_name: str, limit: int = 3) -> List[Dict[str, Any]]:
@@ -73,9 +87,47 @@ class ProductMapper:
 
     def process_receipt_products(self, receipt_products: List[Produkt]) -> None:
         """Process all products from a receipt and find mapping suggestions"""
-        for product in receipt_products:
-            suggestions = self.find_suggestions(product.nazwa)
-            product.sugestie_mapowania = json.dumps(suggestions)
-            self.session.add(product)
-        
-        self.session.commit() 
+        try:
+            log_to_db(
+                PoziomLogu.INFO,
+                "product_mapper",
+                "process_receipt_products",
+                "Rozpoczęcie mapowania produktów z paragonu",
+                json.dumps({
+                    "products_count": len(receipt_products),
+                    "status": "started"
+                })
+            )
+            
+            for product in receipt_products:
+                suggestions = self.find_suggestions(product.nazwa)
+                product.sugestie_mapowania = json.dumps(suggestions)
+                self.session.add(product)
+            
+            self.session.commit()
+            
+            log_to_db(
+                PoziomLogu.INFO,
+                "product_mapper",
+                "process_receipt_products",
+                "Mapowanie produktów zakończone pomyślnie",
+                json.dumps({
+                    "products_count": len(receipt_products),
+                    "status": "completed"
+                })
+            )
+            
+        except Exception as e:
+            log_to_db(
+                PoziomLogu.ERROR,
+                "product_mapper",
+                "process_receipt_products",
+                "Błąd mapowania produktów",
+                json.dumps({
+                    "products_count": len(receipt_products),
+                    "error_type": type(e).__name__,
+                    "error_message": str(e),
+                    "traceback": str(e.__traceback__)
+                })
+            )
+            raise 

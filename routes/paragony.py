@@ -11,8 +11,8 @@ from PIL import Image
 import io
 from ollama_client import ollama_generate
 import easyocr
-from models import Paragon, StatusParagonu, Produkt, KategoriaProduktu
-from database import get_session
+from models import Paragon, StatusParagonu, Produkt, KategoriaProduktu, LogBledow, PoziomLogu
+from database import get_session, SessionLocal
 from logging_config import logger
 import pdf2image
 from fastapi.templating import Jinja2Templates
@@ -25,6 +25,7 @@ from wtforms import ValidationError
 from product_mapper import ProductMapper
 from urllib.parse import quote, unquote
 from tasks import process_receipt_task
+import json
 
 router = APIRouter(prefix="/paragony", tags=["paragony"])
 templates = Jinja2Templates(directory="templates")
@@ -107,6 +108,19 @@ async def _update_product_from_form(
     produkt.ilosc_na_paragonie = int(form.ilosc_na_paragonie.data)
     produkt.data_waznosci = form.data_waznosci.data
 
+def log_to_db(poziom: PoziomLogu, modul: str, funkcja: str, komunikat: str, szczegoly: str = None):
+    """Helper function to log to database"""
+    with SessionLocal() as db:
+        log = LogBledow(
+            poziom=poziom,
+            modul_aplikacji=modul,
+            funkcja=funkcja,
+            komunikat_bledu=komunikat,
+            szczegoly_techniczne=szczegoly
+        )
+        db.add(log)
+        db.commit()
+
 # === Route Handlers ===
 
 @router.get("/", response_class=HTMLResponse)
@@ -155,6 +169,18 @@ async def dodaj_paragon_form(request: Request):
 @router.post("/dodaj", response_class=HTMLResponse)
 async def dodaj_paragon(request: Request, file: UploadFile = File(...), komentarz: Optional[str] = Form(None)):
     try:
+        log_to_db(
+            PoziomLogu.INFO,
+            "routes.paragony",
+            "add_receipt",
+            "Rozpoczęcie dodawania nowego paragonu",
+            json.dumps({
+                "filename": file.filename,
+                "content_type": file.content_type,
+                "status": "started"
+            })
+        )
+        
         form = DodajParagonForm()
         form.file.data = file
         form.komentarz.data = komentarz
@@ -195,11 +221,35 @@ async def dodaj_paragon(request: Request, file: UploadFile = File(...), komentar
         # Set flash message
         response = RedirectResponse(url="/paragony", status_code=303)
         response.set_cookie('flash_msg', quote('Paragon został dodany i jest przetwarzany w tle.'))
+        
+        log_to_db(
+            PoziomLogu.INFO,
+            "routes.paragony",
+            "add_receipt",
+            f"Paragon dodany pomyślnie: {paragon.id}",
+            json.dumps({
+                "paragon_id": paragon.id,
+                "file_path": paragon.sciezka_pliku_na_serwerze,
+                "status": "success"
+            })
+        )
+        
         return response
         
     except Exception as e:
-        logger.error(f"Unexpected error adding receipt: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        log_to_db(
+            PoziomLogu.ERROR,
+            "routes.paragony",
+            "add_receipt",
+            "Błąd dodawania paragonu",
+            json.dumps({
+                "filename": file.filename,
+                "error_type": type(e).__name__,
+                "error_message": str(e),
+                "traceback": str(e.__traceback__)
+            })
+        )
+        raise
 
 @router.get("/podglad/{paragon_id}", response_class=HTMLResponse)
 async def podglad_paragonu(request: Request, paragon_id: int):

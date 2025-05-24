@@ -3,6 +3,22 @@ from typing import List
 import os
 import secrets
 from functools import lru_cache
+from models import LogBledow, PoziomLogu
+from database import SessionLocal
+import json
+
+def log_to_db(poziom: PoziomLogu, modul: str, funkcja: str, komunikat: str, szczegoly: str = None):
+    """Helper function to log to database"""
+    with SessionLocal() as db:
+        log = LogBledow(
+            poziom=poziom,
+            modul_aplikacji=modul,
+            funkcja=funkcja,
+            komunikat_bledu=komunikat,
+            szczegoly_techniczne=szczegoly
+        )
+        db.add(log)
+        db.commit()
 
 class Settings(BaseSettings):
     # Application
@@ -42,11 +58,81 @@ class Settings(BaseSettings):
     LOG_FORMAT: str = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
     LOG_FILE: str = "logs/app.log"
     
-    class Config:
-        env_file = ".env"
-        case_sensitive = True
+    def __init__(self, **kwargs):
+        try:
+            log_to_db(
+                PoziomLogu.INFO,
+                "config",
+                "Settings.__init__",
+                "Inicjalizacja konfiguracji aplikacji",
+                json.dumps({"status": "started"})
+            )
+            
+            super().__init__(**kwargs)
+            
+            log_to_db(
+                PoziomLogu.INFO,
+                "config",
+                "Settings.__init__",
+                "Konfiguracja aplikacji zainicjalizowana pomyślnie",
+                json.dumps({
+                    "status": "completed",
+                    "settings": {
+                        "OLLAMA_API_URL": self.OLLAMA_API_URL,
+                        "OLLAMA_MODEL": self.OLLAMA_MODEL,
+                        "UPLOAD_FOLDER": self.UPLOAD_FOLDER,
+                        "MAX_CONTENT_LENGTH": self.MAX_CONTENT_LENGTH
+                    }
+                })
+            )
+            
+        except Exception as e:
+            log_to_db(
+                PoziomLogu.ERROR,
+                "config",
+                "Settings.__init__",
+                "Błąd inicjalizacji konfiguracji aplikacji",
+                json.dumps({
+                    "error_type": type(e).__name__,
+                    "error_message": str(e),
+                    "traceback": str(e.__traceback__)
+                })
+            )
+            raise
 
-@lru_cache()
 def get_settings() -> Settings:
-    """Get cached settings instance"""
-    return Settings() 
+    """Get application settings"""
+    try:
+        log_to_db(
+            PoziomLogu.INFO,
+            "config",
+            "get_settings",
+            "Pobieranie konfiguracji aplikacji",
+            json.dumps({"status": "started"})
+        )
+        
+        settings = Settings()
+        
+        log_to_db(
+            PoziomLogu.INFO,
+            "config",
+            "get_settings",
+            "Konfiguracja aplikacji pobrana pomyślnie",
+            json.dumps({"status": "completed"})
+        )
+        
+        return settings
+        
+    except Exception as e:
+        log_to_db(
+            PoziomLogu.ERROR,
+            "config",
+            "get_settings",
+            "Błąd pobierania konfiguracji aplikacji",
+            json.dumps({
+                "error_type": type(e).__name__,
+                "error_message": str(e),
+                "traceback": str(e.__traceback__)
+            })
+        )
+        raise 

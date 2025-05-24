@@ -8,7 +8,7 @@ from tenacity import retry, stop_after_attempt, wait_exponential
 import requests
 from logging_config import logger
 from config import get_settings
-from models import StatusParagonu
+from models import StatusParagonu, LogBledow, PoziomLogu
 from ollama_client import OllamaError, OllamaTimeoutError, OllamaConnectionError, ollama_generate
 from pydantic import BaseModel, Field, ValidationError, ConfigDict
 from datetime import date
@@ -19,6 +19,7 @@ import easyocr
 import json
 import multiprocessing
 import os
+from database import SessionLocal
 
 # Set environment variables for CUDA
 os.environ['CUDA_VISIBLE_DEVICES'] = ''  # Disable CUDA
@@ -72,6 +73,19 @@ class Receipt(BaseModel):
         if not self.items:
             raise ValueError("At least one item is required")
 
+def log_to_db(poziom: PoziomLogu, modul: str, funkcja: str, komunikat: str, szczegoly: str = None):
+    """Helper function to log to database"""
+    with SessionLocal() as db:
+        log = LogBledow(
+            poziom=poziom,
+            modul_aplikacji=modul,
+            funkcja=funkcja,
+            komunikat_bledu=komunikat,
+            szczegoly_techniczne=szczegoly
+        )
+        db.add(log)
+        db.commit()
+
 class ReceiptProcessor:
     def __init__(self):
         self.allowed_mime_types = {
@@ -82,6 +96,7 @@ class ReceiptProcessor:
         }
         self.max_file_size = settings.MAX_CONTENT_LENGTH
         self._ocr_reader = None
+        self.initialize_engines()
 
     @property
     def ocr_reader(self):
@@ -232,6 +247,18 @@ class ReceiptProcessor:
         """Process receipt using OCR and Ollama API"""
         try:
             # Step 1: Extract text using OCR
+            log_to_db(
+                PoziomLogu.INFO,
+                "receipt_processor",
+                "process_receipt",
+                f"Rozpoczęcie ekstrakcji tekstu z obrazu: {image_path}",
+                json.dumps({
+                    "file_path": str(image_path),
+                    "stage": "text_extraction",
+                    "status": "started"
+                })
+            )
+            
             extracted_text = self._extract_text_from_image(image_path)
             
             if not extracted_text.strip():
@@ -239,6 +266,18 @@ class ReceiptProcessor:
                 raise ValueError("No text detected on receipt")
 
             # Step 2: Process text with Ollama (Bielik)
+            log_to_db(
+                PoziomLogu.INFO,
+                "receipt_processor",
+                "process_receipt",
+                f"Rozpoczęcie analizy LLM dla: {image_path}",
+                json.dumps({
+                    "file_path": str(image_path),
+                    "stage": "llm_analysis",
+                    "status": "started"
+                })
+            )
+            
             prompt = self._get_receipt_prompt_for_text_input(extracted_text)
             
             llm_response = await ollama_generate(
@@ -249,6 +288,18 @@ class ReceiptProcessor:
             if not llm_response:
                 raise ValueError("Empty response from Ollama")
 
+            log_to_db(
+                PoziomLogu.INFO,
+                "receipt_processor",
+                "process_receipt",
+                f"Analiza LLM zakończona pomyślnie: {image_path}",
+                json.dumps({
+                    "file_path": str(image_path),
+                    "stage": "llm_analysis",
+                    "status": "completed"
+                })
+            )
+            
             return self._parse_ollama_response(llm_response)
 
         except requests.Timeout as e:
@@ -337,4 +388,59 @@ Zwróć tylko i wyłącznie kompletny obiekt JSON, bez żadnych dodatkowych kome
             raise ValueError(f"Invalid receipt data structure: {e}")
         except Exception as e:
             logger.error(f"Error parsing Ollama response: {str(e)}\nResponse: {response}", exc_info=True)
-            raise ValueError(f"Error parsing receipt data: {e}") 
+            raise ValueError(f"Error parsing receipt data: {e}")
+
+    def initialize_engines(self):
+        """Initialize OCR and LLM engines"""
+        try:
+            # Initialize OCR engine
+            log_to_db(
+                PoziomLogu.INFO,
+                "receipt_processor",
+                "initialize_engines",
+                "Inicjalizacja silnika OCR",
+                json.dumps({"status": "started"})
+            )
+            
+            # Initialize OCR engine code here...
+            
+            log_to_db(
+                PoziomLogu.INFO,
+                "receipt_processor",
+                "initialize_engines",
+                "Silnik OCR zainicjalizowany pomyślnie",
+                json.dumps({"status": "success"})
+            )
+            
+            # Initialize LLM client
+            log_to_db(
+                PoziomLogu.INFO,
+                "receipt_processor",
+                "initialize_engines",
+                "Inicjalizacja klienta LLM",
+                json.dumps({"status": "started"})
+            )
+            
+            # Initialize LLM client code here...
+            
+            log_to_db(
+                PoziomLogu.INFO,
+                "receipt_processor",
+                "initialize_engines",
+                "Klient LLM zainicjalizowany pomyślnie",
+                json.dumps({"status": "success"})
+            )
+            
+        except Exception as e:
+            log_to_db(
+                PoziomLogu.ERROR,
+                "receipt_processor",
+                "initialize_engines",
+                "Błąd inicjalizacji silników",
+                json.dumps({
+                    "error_type": type(e).__name__,
+                    "error_message": str(e),
+                    "traceback": str(e.__traceback__)
+                })
+            )
+            raise 

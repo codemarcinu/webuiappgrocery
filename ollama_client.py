@@ -5,6 +5,9 @@ from ollama import AsyncClient, Client, RequestError, ResponseError
 from user_activity_logger import user_activity_logger
 import aiohttp
 import asyncio
+from models import LogBledow, PoziomLogu
+from database import SessionLocal
+import json
 
 settings = get_settings()
 
@@ -74,6 +77,19 @@ async def verify_model_availability() -> bool:
         logger.error(f"Failed to verify model availability: {str(e)}")
         return False
 
+def log_to_db(poziom: PoziomLogu, modul: str, funkcja: str, komunikat: str, szczegoly: str = None):
+    """Helper function to log to database"""
+    with SessionLocal() as db:
+        log = LogBledow(
+            poziom=poziom,
+            modul_aplikacji=modul,
+            funkcja=funkcja,
+            komunikat_bledu=komunikat,
+            szczegoly_techniczne=szczegoly
+        )
+        db.add(log)
+        db.commit()
+
 async def ollama_generate(
     prompt: str,
     system: Optional[str] = None,
@@ -101,9 +117,19 @@ async def ollama_generate(
     timeout_value = timeout or settings.OLLAMA_TIMEOUT
     
     try:
-        client = AsyncClient(
-            host=settings.OLLAMA_API_URL,
-            timeout=timeout_value
+        log_to_db(
+            PoziomLogu.INFO,
+            "ollama_client",
+            "ollama_generate",
+            f"Rozpoczęcie generowania tekstu z modelem {settings.OLLAMA_MODEL}",
+            json.dumps({
+                "model": settings.OLLAMA_MODEL,
+                "prompt_length": len(prompt),
+                "has_system_prompt": bool(system),
+                "stream": stream,
+                "timeout": timeout_value,
+                "status": "started"
+            })
         )
         
         logger.debug(f"Sending request to Ollama with timeout {timeout_value}s")
@@ -121,6 +147,11 @@ async def ollama_generate(
             "started"
         )
         
+        client = AsyncClient(
+            host=settings.OLLAMA_API_URL,
+            timeout=timeout_value
+        )
+        
         response = await client.generate(
             model=settings.OLLAMA_MODEL,
             prompt=prompt,
@@ -136,6 +167,17 @@ async def ollama_generate(
                 "prompt_length": len(prompt)
             },
             "success"
+        )
+        
+        log_to_db(
+            PoziomLogu.INFO,
+            "ollama_client",
+            "ollama_generate",
+            f"Generowanie tekstu zakończone pomyślnie dla modelu {settings.OLLAMA_MODEL}",
+            json.dumps({
+                "model": settings.OLLAMA_MODEL,
+                "status": "completed"
+            })
         )
         
         return response.response
