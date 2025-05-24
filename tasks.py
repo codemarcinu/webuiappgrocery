@@ -1,4 +1,4 @@
-from celery_app import celery_app
+from celery import shared_task
 from database import SessionLocal
 from models import Paragon, StatusParagonu, Produkt, KategoriaProduktu, StatusMapowania
 from receipt_processor import ReceiptProcessor
@@ -12,7 +12,7 @@ import asyncio
 
 receipt_processor = ReceiptProcessor()
 
-@celery_app.task(name='process_receipt', bind=True)
+@shared_task(name='process_receipt', bind=True)
 def process_receipt_task(self, paragon_id: int):
     """Celery task for processing a receipt"""
     db = SessionLocal()

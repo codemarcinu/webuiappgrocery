@@ -19,11 +19,12 @@ from fastapi.templating import Jinja2Templates
 import re
 from receipt_processor import ReceiptProcessor
 from config import get_settings
-from tasks import process_receipt_task
+from celery_app import celery_app
 from forms import DodajParagonForm, EdytujProduktForm
 from wtforms import ValidationError
 from product_mapper import ProductMapper
 from urllib.parse import quote, unquote
+from tasks import process_receipt_task
 
 router = APIRouter(prefix="/paragony", tags=["paragony"])
 templates = Jinja2Templates(directory="templates")
@@ -213,7 +214,8 @@ async def status_przetwarzania(paragon_id: int):
         return {
             "status": paragon.status_przetwarzania,
             "data_przetworzenia": paragon.data_przetworzenia,
-            "blad": paragon.blad_przetwarzania
+            "blad": paragon.blad_przetwarzania,
+            "status_szczegolowy": paragon.status_szczegolowy
         }
 
 @router.get("/{paragon_id}/import", response_class=HTMLResponse)
@@ -356,5 +358,6 @@ async def ignoruj_produkt(
 
 @router.post("/przetworz/{paragon_id}")
 async def przetworz_paragon(paragon_id: int):
+    """Manually trigger receipt processing"""
     process_receipt_task.delay(paragon_id)
     return RedirectResponse(url=f"/paragony/podglad/{paragon_id}", status_code=303) 
