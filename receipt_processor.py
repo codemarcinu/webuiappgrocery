@@ -1,3 +1,6 @@
+import multiprocessing
+multiprocessing.set_start_method('spawn', force=True)
+
 from pathlib import Path
 from typing import Optional, Dict, Any, List
 from PIL import Image, ImageFile, UnidentifiedImageError
@@ -17,7 +20,6 @@ import uuid
 import pdf2image
 import tempfile
 import json
-import multiprocessing
 import os
 from db_logger import log_to_db
 from database import SessionLocal
@@ -26,10 +28,6 @@ import pytesseract
 # Set environment variables for CUDA
 os.environ['CUDA_VISIBLE_DEVICES'] = ''  # Disable CUDA
 os.environ['TORCH_MULTIPROCESSING_START_METHOD'] = 'spawn'
-
-# Set multiprocessing start method to 'spawn' for CUDA compatibility
-if __name__ == '__main__':
-    multiprocessing.set_start_method('spawn', force=True)
 
 # Enable loading of truncated images
 ImageFile.LOAD_TRUNCATED_IMAGES = True

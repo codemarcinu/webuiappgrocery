@@ -1,6 +1,6 @@
-from fastapi import APIRouter, Request, Query, Depends, HTTPException
+from fastapi import APIRouter, Request, Query, Depends, HTTPException, Response
 from fastapi.templating import Jinja2Templates
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, PlainTextResponse
 from sqlmodel import Session, select
 from typing import Optional, List
 from database import get_session
@@ -9,6 +9,8 @@ from models import LogBledow, PoziomLogu
 import json
 from datetime import datetime
 from pathlib import Path
+import os
+import subprocess
 
 router = APIRouter(prefix="/logi", tags=["logi"])
 templates = Jinja2Templates(directory="templates")
@@ -192,3 +194,52 @@ def clear_logs(request: Request):
     response = RedirectResponse(url="/logi", status_code=303)
     response.set_cookie('flash_msg', 'Logi zostaly wyczyszczone i zarchiwizowane!')
     return response 
+
+@router.get("/logi/celery", response_class=PlainTextResponse)
+async def get_celery_logs():
+    log_path = os.path.join("logs", "celery.log")
+    try:
+        with open(log_path, "r") as f:
+            lines = f.readlines()
+        # Zwróć ostatnie 100 linii
+        return "".join(lines[-100:])
+    except Exception as e:
+        return f"Błąd odczytu logów Celery: {e}"
+
+@router.post("/celery/start", response_class=PlainTextResponse)
+def start_celery_worker():
+    pid_file = "logs/celery_worker.pid"
+    # Sprawdź czy worker już działa
+    if os.path.exists(pid_file):
+        try:
+            with open(pid_file, "r") as f:
+                pid = int(f.read().strip())
+            # Sprawdź czy proces żyje
+            os.kill(pid, 0)
+            return "Celery worker już działa (PID: %d)" % pid
+        except Exception:
+            os.remove(pid_file)  # Uszkodzony PID, usuwamy
+    # Uruchom Celery workera
+    try:
+        proc = subprocess.Popen([
+            "celery", "-A", "tasks", "worker", "--loglevel=info", "--logfile=logs/celery.log"
+        ])
+        with open(pid_file, "w") as f:
+            f.write(str(proc.pid))
+        return f"Celery worker uruchomiony (PID: {proc.pid})"
+    except Exception as e:
+        return f"Błąd uruchamiania Celery: {e}"
+
+@router.post("/celery/stop", response_class=PlainTextResponse)
+def stop_celery_worker():
+    pid_file = "logs/celery_worker.pid"
+    if not os.path.exists(pid_file):
+        return "Celery worker nie jest uruchomiony."
+    try:
+        with open(pid_file, "r") as f:
+            pid = int(f.read().strip())
+        os.kill(pid, 15)  # SIGTERM
+        os.remove(pid_file)
+        return f"Celery worker zatrzymany (PID: {pid})"
+    except Exception as e:
+        return f"Błąd zatrzymywania Celery: {e}" 

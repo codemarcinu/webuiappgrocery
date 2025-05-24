@@ -5,6 +5,17 @@
 {% block content %}
 <div class="container mt-4">
     <h1>Logi systemowe</h1>
+    <div class="mb-3 d-flex gap-2">
+        <a href="/logi/celery" target="_blank" class="btn btn-secondary">
+            <i class="fas fa-server"></i> Zobacz logi Celery (ostatnie 100 linii)
+        </a>
+        <form id="celery-start-form" method="post" action="/logi/celery/start" style="display:inline;">
+            <button type="submit" class="btn btn-success"><i class="fas fa-play"></i> Uruchom Celery</button>
+        </form>
+        <form id="celery-stop-form" method="post" action="/logi/celery/stop" style="display:inline; margin-left: 5px;">
+            <button type="submit" class="btn btn-warning"><i class="fas fa-stop"></i> Zatrzymaj Celery</button>
+        </form>
+    </div>
     <form method="get" class="mb-3 d-flex gap-2 align-items-end">
         <div>
             <label for="poziom">Poziom logu:</label>
