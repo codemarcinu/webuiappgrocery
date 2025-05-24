@@ -1,4 +1,4 @@
-from celery import shared_task
+from celery import Celery, shared_task
 from database import SessionLocal
 from models import Paragon, StatusParagonu, Produkt, KategoriaProduktu, StatusMapowania
 from receipt_processor import ReceiptProcessor
@@ -8,8 +8,25 @@ from pathlib import Path
 from decimal import Decimal
 from product_mapper import ProductMapper
 from ollama_client import OllamaError, OllamaTimeoutError, OllamaConnectionError, OllamaModelError
+from config import get_settings
 import json
 import asyncio
+
+settings = get_settings()
+
+# Initialize Celery
+celery = Celery('tasks',
+                broker=settings.CELERY_BROKER_URL,
+                backend=settings.CELERY_RESULT_BACKEND)
+
+# Configure Celery
+celery.conf.update(
+    task_serializer='json',
+    accept_content=['json'],
+    result_serializer='json',
+    timezone='Europe/Warsaw',
+    enable_utc=True,
+)
 
 receipt_processor = ReceiptProcessor()
 
