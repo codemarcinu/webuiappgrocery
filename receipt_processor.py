@@ -17,6 +17,11 @@ import pdf2image
 import tempfile
 import easyocr
 import json
+import multiprocessing
+
+# Set multiprocessing start method to 'spawn' for CUDA compatibility
+if __name__ == '__main__':
+    multiprocessing.set_start_method('spawn', force=True)
 
 # Enable loading of truncated images
 ImageFile.LOAD_TRUNCATED_IMAGES = True
@@ -71,10 +76,15 @@ class ReceiptProcessor:
             'application/pdf': '.pdf'  # Add PDF support
         }
         self.max_file_size = settings.MAX_CONTENT_LENGTH
-        # Initialize EasyOCR reader for Polish language
-        logger.info("Initializing EasyOCR reader...")
-        self.ocr_reader = easyocr.Reader(['pl'])
-        logger.info("EasyOCR reader initialized successfully")
+        self._ocr_reader = None
+
+    @property
+    def ocr_reader(self):
+        if self._ocr_reader is None:
+            logger.info("Initializing EasyOCR reader...")
+            self._ocr_reader = easyocr.Reader(['pl'])
+            logger.info("EasyOCR reader initialized successfully")
+        return self._ocr_reader
 
     async def validate_file(self, file: UploadFile) -> None:
         """Validate uploaded file"""

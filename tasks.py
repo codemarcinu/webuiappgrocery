@@ -1,3 +1,7 @@
+import multiprocessing
+# Set multiprocessing start method to 'spawn' for CUDA compatibility
+multiprocessing.set_start_method('spawn', force=True)
+
 from celery import Celery, shared_task
 from database import SessionLocal
 from models import Paragon, StatusParagonu, Produkt, KategoriaProduktu, StatusMapowania
