@@ -12,7 +12,7 @@ import asyncio
 
 receipt_processor = ReceiptProcessor()
 
-@celery_app.task(bind=True, name='process_receipt')
+@celery_app.task(name='process_receipt', bind=True)
 def process_receipt_task(self, paragon_id: int):
     """Celery task for processing a receipt"""
     db = SessionLocal()
