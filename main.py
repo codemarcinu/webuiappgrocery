@@ -1,4 +1,7 @@
 import multiprocessing
+import logging.config
+from logging_config import LOGGING_CONFIG
+logging.config.dictConfig(LOGGING_CONFIG)
 # Set multiprocessing start method to 'spawn' for CUDA compatibility
 multiprocessing.set_start_method('spawn', force=True)
 

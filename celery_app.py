@@ -1,3 +1,6 @@
+import logging.config
+from logging_config import LOGGING_CONFIG
+logging.config.dictConfig(LOGGING_CONFIG)
 from celery import Celery
 from config import get_settings
 import multiprocessing
