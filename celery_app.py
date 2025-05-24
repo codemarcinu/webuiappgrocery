@@ -25,4 +25,4 @@ celery_app.conf.update(
 )
 
 # Import tasks module to register tasks
-celery_app.autodiscover_tasks(['tasks']) 
+from tasks import process_receipt_task  # This will register the task 

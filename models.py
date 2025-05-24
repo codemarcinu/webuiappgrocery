@@ -94,6 +94,7 @@ class Paragon(SQLModel, table=True):
     data_wyslania: datetime = Field(default_factory=datetime.utcnow, index=True)
     data_przetworzenia: Optional[datetime] = None
     blad_przetwarzania: Optional[str] = None
+    status_szczegolowy: Optional[str] = None
     
     # Relationships
     produkty: List[Produkt] = Relationship(back_populates="paragon")

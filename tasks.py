@@ -22,13 +22,23 @@ def process_receipt_task(self, paragon_id: int):
             logger.error(f"Paragon {paragon_id} not found")
             return
         
-        # Update status to processing
+        # Update status to OCR processing
         paragon.status_przetwarzania = StatusParagonu.PRZETWARZANY_OCR
+        paragon.status_szczegolowy = "Rozpoczęto przetwarzanie OCR..."
         db.commit()
+        logger.info(f"Rozpoczęto OCR dla paragonu {paragon_id}")
         
         try:
             # Process the receipt using ReceiptProcessor (now async)
+            paragon.status_szczegolowy = "Wykonywanie OCR..."
+            db.commit()
             result = asyncio.run(receipt_processor.process_receipt(Path(paragon.sciezka_pliku_na_serwerze)))
+            
+            # Update status to AI processing
+            paragon.status_przetwarzania = StatusParagonu.PRZETWARZANY_AI
+            paragon.status_szczegolowy = "OCR zakończony, analiza AI..."
+            db.commit()
+            logger.info(f"OCR zakończony dla paragonu {paragon_id}, rozpoczynam analizę AI")
             
             # Clear existing products for this receipt
             existing_products = db.query(Produkt).filter(Produkt.paragon_id == paragon.id).all()
@@ -37,6 +47,8 @@ def process_receipt_task(self, paragon_id: int):
             db.commit()
             
             # Add new products from LLM result
+            paragon.status_szczegolowy = "Dodawanie produktów..."
+            db.commit()
             all_new_products = []
             for item_data in result.get("items", []):
                 kategoria_str = item_data.get("category")
@@ -71,6 +83,8 @@ def process_receipt_task(self, paragon_id: int):
             db.commit()
             
             # Call ProductMapper for mapping suggestions
+            paragon.status_szczegolowy = "Generowanie sugestii mapowania produktów..."
+            db.commit()
             product_mapper = ProductMapper(session=db)
             product_mapper.process_receipt_products(all_new_products)
             
@@ -84,14 +98,17 @@ def process_receipt_task(self, paragon_id: int):
             
             # Update status to success
             paragon.status_przetwarzania = StatusParagonu.PRZETWORZONY_OK
+            paragon.status_szczegolowy = "Przetwarzanie zakończone pomyślnie"
             paragon.data_przetworzenia = datetime.now()
             db.commit()
+            logger.info(f"Paragon {paragon_id} przetworzony pomyślnie")
             
             return {"status": "success", "paragon_id": paragon_id, "message": "Receipt processed successfully with local OCR and LLM"}
             
         except Exception as e:
             # Update status to error
             paragon.status_przetwarzania = StatusParagonu.PRZETWORZONY_BLAD
+            paragon.status_szczegolowy = f"Błąd: {str(e)}"
             paragon.blad_przetwarzania = str(e)
             paragon.data_przetworzenia = datetime.now()
             db.commit()
