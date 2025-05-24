@@ -29,6 +29,7 @@ class ReceiptItem(BaseModel):
     quantity: float
     price: float
     total: float
+    category: str = None
 
     def model_post_init(self, __context):
         if self.quantity <= 0:
@@ -256,7 +257,8 @@ class ReceiptProcessor:
                     "name": "Product name (required, non-empty string)",
                     "quantity": "Quantity (required, positive number)",
                     "price": "Price per unit (required, positive number)",
-                    "total": "Total price for this item (required, positive number)"
+                    "total": "Total price for this item (required, positive number)",
+                    "category": "Suggested category (e.g., Spożywcze, Chemia, etc. Optional)"
                 }
             ],
             "tax_id": "Store's tax ID if visible (optional)",
@@ -268,7 +270,7 @@ class ReceiptProcessor:
         2. The date must be in YYYY-MM-DD format
         3. The items array must contain at least one item
         4. All required fields must be present and non-empty
-        5. Optional fields (tax_id, payment_method) can be omitted if not found
+        5. Optional fields (tax_id, payment_method, category) can be omitted if not found
         """
 
     def _parse_ollama_response(self, response: str) -> Dict[str, Any]:

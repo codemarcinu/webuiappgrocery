@@ -1,10 +1,13 @@
 from celery_app import celery_app
 from database import SessionLocal
-from models import Paragon, StatusParagonu
+from models import Paragon, StatusParagonu, Produkt, KategoriaProduktu, StatusMapowania
 from receipt_processor import ReceiptProcessor
 from datetime import datetime
 from logging_config import logger
 from pathlib import Path
+from decimal import Decimal
+from product_mapper import ProductMapper
+import json
 
 receipt_processor = ReceiptProcessor()
 
@@ -25,6 +28,39 @@ def process_receipt_task(self, paragon_id: int):
         try:
             # Process the receipt using ReceiptProcessor
             result = receipt_processor.process_receipt(Path(paragon.sciezka_pliku_na_serwerze))
+            
+            # Clear existing products for this receipt
+            existing_products = db.query(Produkt).filter(Produkt.paragon_id == paragon.id).all()
+            for prod in existing_products:
+                db.delete(prod)
+            db.commit()
+            
+            # Add new products from LLM result
+            all_new_products = []
+            for item_data in result.get("items", []):
+                kategoria_str = item_data.get("category")
+                produkt_kategoria = KategoriaProduktu.INNE
+                if kategoria_str:
+                    try:
+                        produkt_kategoria = KategoriaProduktu(kategoria_str)
+                    except ValueError:
+                        logger.warning(f"Unknown category '{kategoria_str}' from LLM. Defaulting to INNE.")
+                new_product = Produkt(
+                    nazwa=item_data['name'],
+                    kategoria=produkt_kategoria,
+                    cena=Decimal(str(item_data['price'])),
+                    paragon_id=paragon.id,
+                    ilosc_na_paragonie=int(item_data['quantity']),
+                    aktualna_ilosc=0,
+                    status_mapowania=StatusMapowania.OCZEKUJE
+                )
+                db.add(new_product)
+                all_new_products.append(new_product)
+            db.commit()
+            
+            # Call ProductMapper for mapping suggestions
+            product_mapper = ProductMapper(session=db)
+            product_mapper.process_receipt_products(all_new_products)
             
             # Update status to success
             paragon.status_przetwarzania = StatusParagonu.PRZETWORZONY_OK
