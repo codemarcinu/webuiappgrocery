@@ -26,13 +26,14 @@
                                    name="file" 
                                    accept="image/jpeg,image/png,image/gif,application/pdf" 
                                    required
-                                   onchange="validateFile(this)">
+                                   onchange="validateFile(this); showPreview(this);">
                             <div class="form-text">
                                 Dozwolone formaty: JPG, PNG, GIF, PDF. Maksymalny rozmiar: 16MB.
                             </div>
-                            <div class="invalid-feedback">
+                            <div class="invalid-feedback" id="fileError">
                                 Wybierz prawidłowy plik (JPG, PNG, GIF lub PDF) o rozmiarze nie większym niż 16MB.
                             </div>
+                            <div class="receipt-preview-container mt-2" style="min-height: 60px;"></div>
                         </div>
 
                         <div class="mb-3">
@@ -69,16 +70,38 @@ function validateFile(input) {
     const file = input.files[0];
     const maxSize = 16 * 1024 * 1024; // 16MB
     const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'application/pdf'];
-    
+    const errorDiv = document.getElementById('fileError');
     if (file) {
         if (file.size > maxSize) {
             input.setCustomValidity('Plik jest za duży. Maksymalny rozmiar to 16MB.');
+            errorDiv.style.display = 'block';
+            errorDiv.textContent = 'Plik jest za duży. Maksymalny rozmiar to 16MB.';
             input.value = '';
         } else if (!allowedTypes.includes(file.type)) {
             input.setCustomValidity('Niedozwolony format pliku. Dozwolone formaty: JPG, PNG, GIF, PDF.');
+            errorDiv.style.display = 'block';
+            errorDiv.textContent = 'Niedozwolony format pliku. Dozwolone formaty: JPG, PNG, GIF, PDF.';
             input.value = '';
         } else {
             input.setCustomValidity('');
+            errorDiv.style.display = 'none';
+        }
+    }
+}
+
+function showPreview(input) {
+    const container = input.closest('.mb-3').querySelector('.receipt-preview-container');
+    container.innerHTML = '';
+    const file = input.files[0];
+    if (file) {
+        if (file.type.startsWith('image/')) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                container.innerHTML = `<img src="${e.target.result}" alt="Podgląd" style="max-width: 120px; max-height: 120px; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">`;
+            };
+            reader.readAsDataURL(file);
+        } else if (file.type === 'application/pdf') {
+            container.innerHTML = '<i class="fas fa-file-pdf fa-3x text-danger"></i> <span class="text-muted">PDF</span>';
         }
     }
 }
@@ -86,17 +109,16 @@ function validateFile(input) {
 document.getElementById('uploadForm').addEventListener('submit', function(e) {
     const fileInput = document.getElementById('file');
     const submitBtn = document.getElementById('submitBtn');
-    
+    const errorDiv = document.getElementById('fileError');
     if (fileInput.files.length > 0) {
         const file = fileInput.files[0];
         const maxSize = 16 * 1024 * 1024; // 16MB
-        
         if (file.size > maxSize) {
             e.preventDefault();
-            alert('Plik jest za duży. Maksymalny rozmiar to 16MB.');
+            errorDiv.style.display = 'block';
+            errorDiv.textContent = 'Plik jest za duży. Maksymalny rozmiar to 16MB.';
             return;
         }
-        
         // Disable submit button and show loading state
         submitBtn.disabled = true;
         submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Przesyłanie...';

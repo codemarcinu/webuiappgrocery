@@ -9,7 +9,9 @@
             <table class="table">
                 <thead>
                     <tr>
-                        <th>Wybór</th>
+                        <th>
+                            <input type="checkbox" id="select-all">
+                        </th>
                         <th>Nazwa produktu</th>
                         <th>Kategoria</th>
                         <th>Cena</th>
@@ -126,49 +128,26 @@
 {% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', () => {
-    // Initialize all MDC components
-    mdc.autoInit();
-
-    // Handle select all checkbox
+    // Zaznacz wszystko
     const selectAllCheckbox = document.getElementById('select-all');
     const productCheckboxes = document.querySelectorAll('input[name="selected_products[]"]');
-
-    selectAllCheckbox.addEventListener('change', () => {
-        productCheckboxes.forEach(checkbox => {
-            checkbox.checked = selectAllCheckbox.checked;
-        });
-    });
-
-    // Handle form submission
-    const form = document.getElementById('import-form');
-    form.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        
-        const submitButton = form.querySelector('button[type="submit"]');
-        submitButton.disabled = true;
-        submitButton.innerHTML = '<span class="loading-spinner"></span> Importowanie...';
-        
-        try {
-            const formData = new FormData(form);
-            const response = await fetch(form.action, {
-                method: 'POST',
-                body: formData
+    if (selectAllCheckbox) {
+        selectAllCheckbox.addEventListener('change', () => {
+            productCheckboxes.forEach(checkbox => {
+                checkbox.checked = selectAllCheckbox.checked;
             });
-            
-            if (!response.ok) {
-                throw new Error('Błąd podczas importowania produktów');
-            }
-            
-            window.showNotification('Produkty zostały pomyślnie zaimportowane');
-            window.location.href = '/spizarnia';
-            
-        } catch (error) {
-            console.error('Error:', error);
-            submitButton.disabled = false;
-            submitButton.innerHTML = 'Importuj wybrane produkty';
-            window.showNotification('Wystąpił błąd podczas importowania produktów', 5000);
-        }
-    });
+        });
+    }
+
+    // Spinner i blokada przycisku
+    const form = document.querySelector('form');
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            const submitButton = form.querySelector('button[type="submit"]');
+            submitButton.disabled = true;
+            submitButton.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Zapisywanie...';
+        });
+    }
 });
 </script>
 {% endblock %} 

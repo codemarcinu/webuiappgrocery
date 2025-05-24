@@ -111,14 +111,32 @@ async def _update_product_from_form(
 
 @router.get("/", response_class=HTMLResponse)
 async def lista_paragonow(request: Request):
-    """Show list of receipts"""
+    """Show list of receipts with sorting and filtering"""
+    sort = request.query_params.get("sort", "data")
+    status = request.query_params.get("status", "")
+    nazwa = request.query_params.get("nazwa", "")
     with get_session() as db:
-        paragony = db.query(Paragon).order_by(Paragon.data_wyslania.desc()).all()
+        query = db.query(Paragon)
+        if status:
+            query = query.filter(Paragon.status_przetwarzania == status)
+        if nazwa:
+            query = query.filter(Paragon.nazwa_pliku_oryginalnego.ilike(f"%{nazwa}%"))
+        if sort == "status":
+            query = query.order_by(Paragon.status_przetwarzania, Paragon.data_wyslania.desc())
+        else:
+            query = query.order_by(Paragon.data_wyslania.desc())
+        paragony = query.all()
+        # Lista statusów do filtrowania
+        statusy = [(s.name, s.value) for s in StatusParagonu]
         return templates.TemplateResponse(
             "paragony/lista.html",
             {
                 "request": request,
-                "paragony": paragony
+                "paragony": paragony,
+                "statusy": statusy,
+                "selected_status": status,
+                "selected_sort": sort,
+                "selected_nazwa": nazwa
             }
         )
 

@@ -7,6 +7,29 @@
     <h1>Mapowanie Produktów z Paragonu</h1>
     <p class="text-muted">Paragon z dnia: {{ paragon.data_zakupu.strftime('%Y-%m-%d') }}</p>
     
+    <div class="mb-3 d-flex gap-2">
+        <button type="button" class="btn btn-primary" onclick="toggleBulkMode()">
+            <i class="fas fa-layer-group"></i> Tryb masowego mapowania
+        </button>
+        <button type="button" 
+                class="btn btn-outline-secondary" 
+                data-bs-toggle="tooltip" 
+                data-bs-html="true"
+                title="<b>Skróty klawiszowe:</b><br>
+                       Alt + M - Tryb masowy<br>
+                       Alt + S - Wyszukaj<br>
+                       Alt + N - Dodaj jako nowy<br>
+                       Alt + Q - Szybkie mapowanie">
+            <i class="fas fa-keyboard"></i> Skróty
+        </button>
+        <div id="bulkProgress" class="progress flex-grow-1" style="display: none;">
+            <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                 role="progressbar" 
+                 style="width: 0%">
+            </div>
+        </div>
+    </div>
+    
     {% if flash_msg %}
     <div class="alert alert-info alert-dismissible fade show" role="alert">
         {{ flash_msg }}
@@ -47,7 +70,13 @@
                     <td>
                         <div class="btn-group">
                             <button type="button" 
-                                    class="btn btn-sm btn-primary" 
+                                    class="btn btn-sm btn-success map-btn" 
+                                    onclick="quickMap({{ produkt.id }})"
+                                    title="Szybkie mapowanie do najbardziej prawdopodobnego produktu">
+                                <i class="fas fa-bolt"></i> Szybkie
+                            </button>
+                            <button type="button" 
+                                    class="btn btn-sm btn-primary map-btn" 
                                     data-bs-toggle="modal" 
                                     data-bs-target="#mapModal{{ produkt.id }}">
                                 <i class="fas fa-link"></i> Mapuj
@@ -70,6 +99,28 @@
                                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                             </div>
                             <div class="modal-body">
+                                <div class="mb-3">
+                                    <input type="text" 
+                                           class="form-control" 
+                                           id="searchProduct{{ produkt.id }}" 
+                                           placeholder="Wyszukaj produkt..."
+                                           onkeyup="filterProducts({{ produkt.id }})">
+                                </div>
+                                <div class="mb-3">
+                                    <select class="form-select" 
+                                            id="categoryFilter{{ produkt.id }}"
+                                            onchange="filterByCategory({{ produkt.id }})">
+                                        <option value="">Wszystkie kategorie</option>
+                                        <option value="Nabiał">Nabiał</option>
+                                        <option value="Pieczywo">Pieczywo</option>
+                                        <option value="Mięso">Mięso</option>
+                                        <option value="Warzywa">Warzywa</option>
+                                        <option value="Owoce">Owoce</option>
+                                        <option value="Słodycze">Słodycze</option>
+                                        <option value="Napoje">Napoje</option>
+                                        <option value="Inne">Inne</option>
+                                    </select>
+                                </div>
                                 {% if produkt.sugestie_mapowania %}
                                 <h6>Sugerowane produkty:</h6>
                                 <div class="list-group mb-3">
@@ -112,6 +163,57 @@
 
 {% block scripts %}
 <script>
+// Initialize tooltips
+document.addEventListener('DOMContentLoaded', function() {
+    const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    tooltipTriggerList.map(function(tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+});
+
+// Add keyboard shortcuts
+document.addEventListener('keydown', function(e) {
+    // Alt + M to toggle bulk mode
+    if (e.altKey && e.key === 'm') {
+        e.preventDefault();
+        toggleBulkMode();
+    }
+    
+    // Alt + S to focus search in current modal
+    if (e.altKey && e.key === 's') {
+        e.preventDefault();
+        const activeModal = document.querySelector('.modal.show');
+        if (activeModal) {
+            const searchInput = activeModal.querySelector('input[type="text"]');
+            if (searchInput) {
+                searchInput.focus();
+            }
+        }
+    }
+    
+    // Alt + N to map as new product
+    if (e.altKey && e.key === 'n') {
+        e.preventDefault();
+        const activeModal = document.querySelector('.modal.show');
+        if (activeModal) {
+            const mapAsNewBtn = activeModal.querySelector('button[onclick^="mapAsNew"]');
+            if (mapAsNewBtn) {
+                mapAsNewBtn.click();
+            }
+        }
+    }
+
+    // Alt + Q for quick mapping
+    if (e.altKey && e.key === 'q') {
+        e.preventDefault();
+        const activeModal = document.querySelector('.modal.show');
+        if (activeModal) {
+            const productId = activeModal.id.replace('mapModal', '');
+            quickMap(productId);
+        }
+    }
+});
+
 function getCsrfToken() {
     return document.querySelector('meta[name="csrf-token"]').getAttribute('content');
 }
@@ -120,7 +222,8 @@ function mapToExisting(receiptProductId, pantryProductId) {
     fetch(`/api/produkty/mapuj/${receiptProductId}`, {
         method: 'POST',
         headers: {
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'X-CSRF-Token': getCsrfToken()
         },
         body: JSON.stringify({
             pantry_product_id: pantryProductId
@@ -128,15 +231,16 @@ function mapToExisting(receiptProductId, pantryProductId) {
     })
     .then(response => response.json())
     .then(data => {
-        if (data.success) {
-            location.reload();
+        if (data.status === 'success') {
+            showNotification('Produkt został zmapowany!', 2000);
+            updateRowStatus(receiptProductId, 'zmapowany');
         } else {
-            alert('Błąd podczas mapowania produktu: ' + data.error);
+            showNotification('Błąd podczas mapowania produktu', 4000);
         }
     })
     .catch(error => {
         console.error('Error:', error);
-        alert('Wystąpił błąd podczas mapowania produktu');
+        showNotification('Wystąpił błąd podczas mapowania produktu', 4000);
     });
 }
 
@@ -144,7 +248,8 @@ function mapAsNew(receiptProductId) {
     fetch(`/api/produkty/mapuj/${receiptProductId}`, {
         method: 'POST',
         headers: {
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'X-CSRF-Token': getCsrfToken()
         },
         body: JSON.stringify({
             map_as_new: true
@@ -152,15 +257,16 @@ function mapAsNew(receiptProductId) {
     })
     .then(response => response.json())
     .then(data => {
-        if (data.success) {
-            location.reload();
+        if (data.status === 'success') {
+            showNotification('Produkt dodany jako nowy!', 2000);
+            updateRowStatus(receiptProductId, 'nowy');
         } else {
-            alert('Błąd podczas mapowania produktu: ' + data.error);
+            showNotification('Błąd podczas mapowania produktu', 4000);
         }
     })
     .catch(error => {
         console.error('Error:', error);
-        alert('Wystąpił błąd podczas mapowania produktu');
+        showNotification('Wystąpił błąd podczas mapowania produktu', 4000);
     });
 }
 
@@ -168,22 +274,186 @@ function ignoreProduct(receiptProductId) {
     if (!confirm('Czy na pewno chcesz zignorować ten produkt?')) {
         return;
     }
-    
     fetch(`/api/produkty/ignoruj/${receiptProductId}`, {
-        method: 'POST'
+        method: 'POST',
+        headers: {
+            'X-CSRF-Token': getCsrfToken()
+        }
     })
     .then(response => response.json())
     .then(data => {
-        if (data.success) {
-            location.reload();
+        if (data.status === 'success') {
+            showNotification('Produkt zignorowany!', 2000);
+            updateRowStatus(receiptProductId, 'ignorowany');
         } else {
-            alert('Błąd podczas ignorowania produktu: ' + data.error);
+            showNotification('Błąd podczas ignorowania produktu', 4000);
         }
     })
     .catch(error => {
         console.error('Error:', error);
-        alert('Wystąpił błąd podczas ignorowania produktu');
+        showNotification('Wystąpił błąd podczas ignorowania produktu', 4000);
     });
+}
+
+function updateRowStatus(productId, newStatus) {
+    // Znajdź wiersz i zaktualizuj status bez przeładowania strony
+    const row = document.querySelector(`button[data-bs-target='#mapModal${productId}']`).closest('tr');
+    const statusCell = row.querySelector('td:nth-child(5)');
+    let badge = '';
+    if (newStatus === 'zmapowany') badge = '<span class="badge bg-success">Zmapowany</span>';
+    else if (newStatus === 'nowy') badge = '<span class="badge bg-info">Nowy</span>';
+    else if (newStatus === 'ignorowany') badge = '<span class="badge bg-secondary">Ignorowany</span>';
+    else badge = '<span class="badge bg-warning">Oczekuje</span>';
+    statusCell.innerHTML = badge;
+    // Opcjonalnie: dezaktywuj przyciski akcji
+    row.querySelectorAll('button, a').forEach(btn => btn.disabled = true);
+}
+
+function showNotification(msg, timeout=3000) {
+    const notif = document.createElement('div');
+    notif.className = 'alert alert-info position-fixed top-0 end-0 m-3 shadow';
+    notif.style.zIndex = 2000;
+    notif.innerHTML = msg;
+    document.body.appendChild(notif);
+    setTimeout(() => notif.remove(), timeout);
+}
+
+function filterProducts(productId) {
+    const searchInput = document.getElementById(`searchProduct${productId}`);
+    const searchText = searchInput.value.toLowerCase();
+    const productList = document.querySelectorAll(`#mapModal${productId} .list-group-item`);
+    
+    productList.forEach(item => {
+        const productName = item.textContent.toLowerCase();
+        if (productName.includes(searchText)) {
+            item.style.display = '';
+        } else {
+            item.style.display = 'none';
+        }
+    });
+}
+
+function filterByCategory(productId) {
+    const categoryFilter = document.getElementById(`categoryFilter${productId}`);
+    const selectedCategory = categoryFilter.value;
+    const productList = document.querySelectorAll(`#mapModal${productId} .list-group-item`);
+    
+    productList.forEach(item => {
+        const productCategory = item.textContent.split('(')[1].split(')')[0].trim().toLowerCase();
+        if (selectedCategory === '' || productCategory === selectedCategory) {
+            item.style.display = '';
+        } else {
+            item.style.display = 'none';
+        }
+    });
+}
+
+let bulkMode = false;
+let selectedProducts = new Set();
+
+function toggleBulkMode() {
+    bulkMode = !bulkMode;
+    const btn = document.querySelector('button[onclick="toggleBulkMode()"]');
+    if (bulkMode) {
+        btn.classList.add('active');
+        document.querySelectorAll('.map-btn').forEach(btn => {
+            btn.innerHTML = '<i class="fas fa-check"></i> Wybierz';
+            btn.onclick = () => toggleProductSelection(btn);
+        });
+    } else {
+        btn.classList.remove('active');
+        document.querySelectorAll('.map-btn').forEach(btn => {
+            btn.innerHTML = '<i class="fas fa-link"></i> Mapuj';
+            btn.onclick = null;
+            btn.setAttribute('data-bs-toggle', 'modal');
+            btn.setAttribute('data-bs-target', btn.getAttribute('data-bs-target'));
+        });
+        selectedProducts.clear();
+    }
+}
+
+function toggleProductSelection(btn) {
+    const productId = btn.closest('tr').querySelector('button[data-bs-target]').getAttribute('data-bs-target').replace('#mapModal', '');
+    if (selectedProducts.has(productId)) {
+        selectedProducts.delete(productId);
+        btn.classList.remove('btn-success');
+        btn.classList.add('btn-primary');
+    } else {
+        selectedProducts.add(productId);
+        btn.classList.remove('btn-primary');
+        btn.classList.add('btn-success');
+    }
+}
+
+function bulkMapProducts(pantryProductId) {
+    if (selectedProducts.size === 0) {
+        showNotification('Wybierz produkty do zmapowania', 3000);
+        return;
+    }
+    
+    const progressBar = document.getElementById('bulkProgress');
+    const progressBarInner = progressBar.querySelector('.progress-bar');
+    progressBar.style.display = 'flex';
+    progressBarInner.style.width = '0%';
+    
+    const products = Array.from(selectedProducts);
+    let completed = 0;
+    
+    const promises = products.map(productId => 
+        fetch(`/api/produkty/mapuj/${productId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-Token': getCsrfToken()
+            },
+            body: JSON.stringify({
+                pantry_product_id: pantryProductId
+            })
+        })
+        .then(response => response.json())
+        .then(result => {
+            completed++;
+            const progress = (completed / products.length) * 100;
+            progressBarInner.style.width = `${progress}%`;
+            return result;
+        })
+    );
+    
+    Promise.all(promises)
+        .then(results => {
+            if (results.every(r => r.status === 'success')) {
+                showNotification('Produkty zostały zmapowane!', 2000);
+                selectedProducts.forEach(id => updateRowStatus(id, 'zmapowany'));
+                toggleBulkMode(); // Reset bulk mode
+            } else {
+                showNotification('Wystąpiły błędy podczas mapowania produktów', 4000);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showNotification('Wystąpił błąd podczas mapowania produktów', 4000);
+        })
+        .finally(() => {
+            setTimeout(() => {
+                progressBar.style.display = 'none';
+                progressBarInner.style.width = '0%';
+            }, 1000);
+        });
+}
+
+function quickMap(productId) {
+    const modal = document.getElementById(`mapModal${productId}`);
+    const firstSuggestion = modal.querySelector('.list-group-item');
+    
+    if (firstSuggestion) {
+        const productName = firstSuggestion.textContent.split('(')[0].trim();
+        if (confirm(`Czy chcesz zmapować do produktu "${productName}"?`)) {
+            const pantryProductId = firstSuggestion.getAttribute('onclick').match(/mapToExisting\([^,]+,\s*(\d+)\)/)[1];
+            mapToExisting(productId, pantryProductId);
+        }
+    } else {
+        showNotification('Brak sugestii mapowania dla tego produktu', 3000);
+    }
 }
 </script>
 {% endblock %} 
