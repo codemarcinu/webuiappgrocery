@@ -200,6 +200,7 @@ async def dodaj_paragon(request: Request, file: UploadFile = File(...), komentar
         saved_path = await receipt_processor.validate_and_save_file(file)
         
         # Create receipt record with transaction
+        paragon_id = None
         with get_session() as db:
             try:
                 paragon, paragon_id = await _create_paragon_record(
@@ -216,7 +217,8 @@ async def dodaj_paragon(request: Request, file: UploadFile = File(...), komentar
                 raise HTTPException(status_code=500, detail="Error creating receipt record")
         
         # Start Celery task for processing
-        process_receipt_task.delay(paragon_id)
+        if paragon_id:
+            process_receipt_task.delay(paragon_id)
         
         # Set flash message
         response = RedirectResponse(url="/paragony", status_code=303)
@@ -226,10 +228,10 @@ async def dodaj_paragon(request: Request, file: UploadFile = File(...), komentar
             PoziomLogu.INFO,
             "routes.paragony",
             "add_receipt",
-            f"Paragon dodany pomyślnie: {paragon.id}",
+            f"Paragon dodany pomyślnie: {paragon_id}",
             json.dumps({
-                "paragon_id": paragon.id,
-                "file_path": paragon.sciezka_pliku_na_serwerze,
+                "paragon_id": paragon_id,
+                "file_path": saved_path,
                 "status": "success"
             })
         )

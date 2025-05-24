@@ -33,7 +33,7 @@ class Settings(BaseSettings):
     
     # Ollama
     OLLAMA_API_URL: str = os.getenv("OLLAMA_API_URL", "http://localhost:11434")
-    OLLAMA_MODEL: str = os.getenv("OLLAMA_MODEL", "llama2")
+    OLLAMA_MODEL: str = os.getenv("OLLAMA_MODEL", "bielik-local-q8")
     OLLAMA_TIMEOUT: int = int(os.getenv("OLLAMA_TIMEOUT", "30"))
     
     # Celery
