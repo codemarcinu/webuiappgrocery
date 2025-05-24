@@ -96,6 +96,7 @@ class Paragon(SQLModel, table=True):
     data_przetworzenia: Optional[datetime] = None
     blad_przetwarzania: Optional[str] = None
     status_szczegolowy: Optional[str] = None
+    progress_percentage: Optional[int] = Field(default=0)  # New field for tracking progress
     
     # Relationships
     produkty: List[Produkt] = Relationship(back_populates="paragon")
