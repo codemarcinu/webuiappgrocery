@@ -102,7 +102,6 @@
                         {% endif %}
                         <form action="/paragony/usun/{{ paragon.id }}" method="POST" class="d-inline" 
                               onsubmit="return confirm('Czy na pewno chcesz usunąć ten paragon?');">
-                            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                             <button type="submit" class="btn btn-danger">
                                 <i class="fas fa-trash"></i> Usuń Paragon
                             </button>

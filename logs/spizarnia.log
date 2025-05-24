@@ -157,3 +157,368 @@ AttributeError: OCZEKUJACY
 2025-05-24 06:13:22,164 - spizarnia - INFO - Database tables created successfully
 2025-05-24 06:13:54,181 - spizarnia - INFO - Application started successfully
 2025-05-24 06:13:54,181 - spizarnia - INFO - Application started successfully
+2025-05-24 06:39:12,442 - spizarnia - INFO - Database tables created successfully
+2025-05-24 06:39:45,523 - spizarnia - INFO - Application started successfully
+2025-05-24 06:39:45,523 - spizarnia - INFO - Application started successfully
+2025-05-24 06:39:52,451 - spizarnia - ERROR - Database session error: (sqlite3.OperationalError) no such column: produkt.status_mapowania
+[SQL: SELECT produkt.id AS produkt_id, produkt.nazwa AS produkt_nazwa, produkt.kategoria AS produkt_kategoria, produkt.cena AS produkt_cena, produkt.data_waznosci AS produkt_data_waznosci, produkt.paragon_id AS produkt_paragon_id, produkt.data_dodania AS produkt_data_dodania, produkt.ilosc_na_paragonie AS produkt_ilosc_na_paragonie, produkt.aktualna_ilosc AS produkt_aktualna_ilosc, produkt.status_mapowania AS produkt_status_mapowania, produkt.sugestie_mapowania AS produkt_sugestie_mapowania, produkt.zmapowany_do_id AS produkt_zmapowany_do_id 
+FROM produkt 
+WHERE ? = produkt.paragon_id]
+[parameters: (5,)]
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+Traceback (most recent call last):
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/engine/base.py", line 1963, in _exec_single_context
+    self.dialect.do_execute(
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/engine/default.py", line 943, in do_execute
+    cursor.execute(statement, parameters)
+sqlite3.OperationalError: no such column: produkt.status_mapowania
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/marubo/PycharmProjects/webuiappgrocery/database.py", line 40, in get_db_session
+    yield session
+  File "/home/marubo/PycharmProjects/webuiappgrocery/routes/paragony.py", line 294, in usun_paragon
+    db.commit()
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/orm/session.py", line 2032, in commit
+    trans.commit(_to_root=True)
+  File "<string>", line 2, in commit
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/orm/state_changes.py", line 139, in _go
+    ret_value = fn(self, *arg, **kw)
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/orm/session.py", line 1313, in commit
+    self._prepare_impl()
+  File "<string>", line 2, in _prepare_impl
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/orm/state_changes.py", line 139, in _go
+    ret_value = fn(self, *arg, **kw)
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/orm/session.py", line 1288, in _prepare_impl
+    self.session.flush()
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/orm/session.py", line 4345, in flush
+    self._flush(objects)
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/orm/session.py", line 4480, in _flush
+    with util.safe_reraise():
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/util/langhelpers.py", line 224, in __exit__
+    raise exc_value.with_traceback(exc_tb)
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/orm/session.py", line 4441, in _flush
+    flush_context.execute()
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/orm/unitofwork.py", line 442, in execute
+    postsort_actions = self._generate_actions()
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/orm/unitofwork.py", line 400, in _generate_actions
+    if action.execute(self):
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/orm/unitofwork.py", line 532, in execute
+    self.dependency_processor.presort_deletes(uow, delete_states)
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/orm/dependency.py", line 450, in presort_deletes
+    history = uowcommit.get_attribute_history(
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/orm/unitofwork.py", line 283, in get_attribute_history
+    history = impl.get_history(
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/orm/attributes.py", line 1679, in get_history
+    current = self.get(state, dict_, passive=passive)
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/orm/attributes.py", line 1086, in get
+    value = self._fire_loader_callables(state, key, passive)
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/orm/attributes.py", line 1121, in _fire_loader_callables
+    return self.callable_(state, passive)
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/orm/strategies.py", line 978, in _load_for_state
+    return self._emit_lazyload(
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/orm/strategies.py", line 1141, in _emit_lazyload
+    result = session.execute(
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlmodel/orm/session.py", line 127, in execute
+    return super().execute(
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/orm/session.py", line 2365, in execute
+    return self._execute_internal(
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/orm/session.py", line 2251, in _execute_internal
+    result: Result[Any] = compile_state_cls.orm_execute_statement(
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/orm/context.py", line 306, in orm_execute_statement
+    result = conn.execute(
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/engine/base.py", line 1415, in execute
+    return meth(
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/sql/elements.py", line 523, in _execute_on_connection
+    return connection._execute_clauseelement(
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/engine/base.py", line 1637, in _execute_clauseelement
+    ret = self._execute_context(
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/engine/base.py", line 1842, in _execute_context
+    return self._exec_single_context(
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/engine/base.py", line 1982, in _exec_single_context
+    self._handle_dbapi_exception(
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/engine/base.py", line 2351, in _handle_dbapi_exception
+    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/engine/base.py", line 1963, in _exec_single_context
+    self.dialect.do_execute(
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/engine/default.py", line 943, in do_execute
+    cursor.execute(statement, parameters)
+sqlalchemy.exc.OperationalError: (sqlite3.OperationalError) no such column: produkt.status_mapowania
+[SQL: SELECT produkt.id AS produkt_id, produkt.nazwa AS produkt_nazwa, produkt.kategoria AS produkt_kategoria, produkt.cena AS produkt_cena, produkt.data_waznosci AS produkt_data_waznosci, produkt.paragon_id AS produkt_paragon_id, produkt.data_dodania AS produkt_data_dodania, produkt.ilosc_na_paragonie AS produkt_ilosc_na_paragonie, produkt.aktualna_ilosc AS produkt_aktualna_ilosc, produkt.status_mapowania AS produkt_status_mapowania, produkt.sugestie_mapowania AS produkt_sugestie_mapowania, produkt.zmapowany_do_id AS produkt_zmapowany_do_id 
+FROM produkt 
+WHERE ? = produkt.paragon_id]
+[parameters: (5,)]
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+2025-05-24 06:39:52,451 - spizarnia - ERROR - Database session error: (sqlite3.OperationalError) no such column: produkt.status_mapowania
+[SQL: SELECT produkt.id AS produkt_id, produkt.nazwa AS produkt_nazwa, produkt.kategoria AS produkt_kategoria, produkt.cena AS produkt_cena, produkt.data_waznosci AS produkt_data_waznosci, produkt.paragon_id AS produkt_paragon_id, produkt.data_dodania AS produkt_data_dodania, produkt.ilosc_na_paragonie AS produkt_ilosc_na_paragonie, produkt.aktualna_ilosc AS produkt_aktualna_ilosc, produkt.status_mapowania AS produkt_status_mapowania, produkt.sugestie_mapowania AS produkt_sugestie_mapowania, produkt.zmapowany_do_id AS produkt_zmapowany_do_id 
+FROM produkt 
+WHERE ? = produkt.paragon_id]
+[parameters: (5,)]
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+Traceback (most recent call last):
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/engine/base.py", line 1963, in _exec_single_context
+    self.dialect.do_execute(
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/engine/default.py", line 943, in do_execute
+    cursor.execute(statement, parameters)
+sqlite3.OperationalError: no such column: produkt.status_mapowania
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/marubo/PycharmProjects/webuiappgrocery/database.py", line 40, in get_db_session
+    yield session
+  File "/home/marubo/PycharmProjects/webuiappgrocery/routes/paragony.py", line 294, in usun_paragon
+    db.commit()
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/orm/session.py", line 2032, in commit
+    trans.commit(_to_root=True)
+  File "<string>", line 2, in commit
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/orm/state_changes.py", line 139, in _go
+    ret_value = fn(self, *arg, **kw)
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/orm/session.py", line 1313, in commit
+    self._prepare_impl()
+  File "<string>", line 2, in _prepare_impl
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/orm/state_changes.py", line 139, in _go
+    ret_value = fn(self, *arg, **kw)
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/orm/session.py", line 1288, in _prepare_impl
+    self.session.flush()
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/orm/session.py", line 4345, in flush
+    self._flush(objects)
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/orm/session.py", line 4480, in _flush
+    with util.safe_reraise():
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/util/langhelpers.py", line 224, in __exit__
+    raise exc_value.with_traceback(exc_tb)
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/orm/session.py", line 4441, in _flush
+    flush_context.execute()
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/orm/unitofwork.py", line 442, in execute
+    postsort_actions = self._generate_actions()
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/orm/unitofwork.py", line 400, in _generate_actions
+    if action.execute(self):
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/orm/unitofwork.py", line 532, in execute
+    self.dependency_processor.presort_deletes(uow, delete_states)
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/orm/dependency.py", line 450, in presort_deletes
+    history = uowcommit.get_attribute_history(
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/orm/unitofwork.py", line 283, in get_attribute_history
+    history = impl.get_history(
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/orm/attributes.py", line 1679, in get_history
+    current = self.get(state, dict_, passive=passive)
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/orm/attributes.py", line 1086, in get
+    value = self._fire_loader_callables(state, key, passive)
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/orm/attributes.py", line 1121, in _fire_loader_callables
+    return self.callable_(state, passive)
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/orm/strategies.py", line 978, in _load_for_state
+    return self._emit_lazyload(
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/orm/strategies.py", line 1141, in _emit_lazyload
+    result = session.execute(
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlmodel/orm/session.py", line 127, in execute
+    return super().execute(
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/orm/session.py", line 2365, in execute
+    return self._execute_internal(
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/orm/session.py", line 2251, in _execute_internal
+    result: Result[Any] = compile_state_cls.orm_execute_statement(
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/orm/context.py", line 306, in orm_execute_statement
+    result = conn.execute(
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/engine/base.py", line 1415, in execute
+    return meth(
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/sql/elements.py", line 523, in _execute_on_connection
+    return connection._execute_clauseelement(
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/engine/base.py", line 1637, in _execute_clauseelement
+    ret = self._execute_context(
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/engine/base.py", line 1842, in _execute_context
+    return self._exec_single_context(
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/engine/base.py", line 1982, in _exec_single_context
+    self._handle_dbapi_exception(
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/engine/base.py", line 2351, in _handle_dbapi_exception
+    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/engine/base.py", line 1963, in _exec_single_context
+    self.dialect.do_execute(
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/engine/default.py", line 943, in do_execute
+    cursor.execute(statement, parameters)
+sqlalchemy.exc.OperationalError: (sqlite3.OperationalError) no such column: produkt.status_mapowania
+[SQL: SELECT produkt.id AS produkt_id, produkt.nazwa AS produkt_nazwa, produkt.kategoria AS produkt_kategoria, produkt.cena AS produkt_cena, produkt.data_waznosci AS produkt_data_waznosci, produkt.paragon_id AS produkt_paragon_id, produkt.data_dodania AS produkt_data_dodania, produkt.ilosc_na_paragonie AS produkt_ilosc_na_paragonie, produkt.aktualna_ilosc AS produkt_aktualna_ilosc, produkt.status_mapowania AS produkt_status_mapowania, produkt.sugestie_mapowania AS produkt_sugestie_mapowania, produkt.zmapowany_do_id AS produkt_zmapowany_do_id 
+FROM produkt 
+WHERE ? = produkt.paragon_id]
+[parameters: (5,)]
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+2025-05-24 06:40:01,323 - spizarnia - ERROR - Database session error: (sqlite3.OperationalError) no such column: produkt.status_mapowania
+[SQL: SELECT produkt.id AS produkt_id, produkt.nazwa AS produkt_nazwa, produkt.kategoria AS produkt_kategoria, produkt.cena AS produkt_cena, produkt.data_waznosci AS produkt_data_waznosci, produkt.paragon_id AS produkt_paragon_id, produkt.data_dodania AS produkt_data_dodania, produkt.ilosc_na_paragonie AS produkt_ilosc_na_paragonie, produkt.aktualna_ilosc AS produkt_aktualna_ilosc, produkt.status_mapowania AS produkt_status_mapowania, produkt.sugestie_mapowania AS produkt_sugestie_mapowania, produkt.zmapowany_do_id AS produkt_zmapowany_do_id 
+FROM produkt 
+WHERE ? = produkt.paragon_id]
+[parameters: (4,)]
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+Traceback (most recent call last):
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/engine/base.py", line 1963, in _exec_single_context
+    self.dialect.do_execute(
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/engine/default.py", line 943, in do_execute
+    cursor.execute(statement, parameters)
+sqlite3.OperationalError: no such column: produkt.status_mapowania
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/marubo/PycharmProjects/webuiappgrocery/database.py", line 40, in get_db_session
+    yield session
+  File "/home/marubo/PycharmProjects/webuiappgrocery/routes/paragony.py", line 294, in usun_paragon
+    db.commit()
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/orm/session.py", line 2032, in commit
+    trans.commit(_to_root=True)
+  File "<string>", line 2, in commit
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/orm/state_changes.py", line 139, in _go
+    ret_value = fn(self, *arg, **kw)
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/orm/session.py", line 1313, in commit
+    self._prepare_impl()
+  File "<string>", line 2, in _prepare_impl
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/orm/state_changes.py", line 139, in _go
+    ret_value = fn(self, *arg, **kw)
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/orm/session.py", line 1288, in _prepare_impl
+    self.session.flush()
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/orm/session.py", line 4345, in flush
+    self._flush(objects)
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/orm/session.py", line 4480, in _flush
+    with util.safe_reraise():
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/util/langhelpers.py", line 224, in __exit__
+    raise exc_value.with_traceback(exc_tb)
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/orm/session.py", line 4441, in _flush
+    flush_context.execute()
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/orm/unitofwork.py", line 442, in execute
+    postsort_actions = self._generate_actions()
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/orm/unitofwork.py", line 400, in _generate_actions
+    if action.execute(self):
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/orm/unitofwork.py", line 532, in execute
+    self.dependency_processor.presort_deletes(uow, delete_states)
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/orm/dependency.py", line 450, in presort_deletes
+    history = uowcommit.get_attribute_history(
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/orm/unitofwork.py", line 283, in get_attribute_history
+    history = impl.get_history(
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/orm/attributes.py", line 1679, in get_history
+    current = self.get(state, dict_, passive=passive)
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/orm/attributes.py", line 1086, in get
+    value = self._fire_loader_callables(state, key, passive)
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/orm/attributes.py", line 1121, in _fire_loader_callables
+    return self.callable_(state, passive)
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/orm/strategies.py", line 978, in _load_for_state
+    return self._emit_lazyload(
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/orm/strategies.py", line 1141, in _emit_lazyload
+    result = session.execute(
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlmodel/orm/session.py", line 127, in execute
+    return super().execute(
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/orm/session.py", line 2365, in execute
+    return self._execute_internal(
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/orm/session.py", line 2251, in _execute_internal
+    result: Result[Any] = compile_state_cls.orm_execute_statement(
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/orm/context.py", line 306, in orm_execute_statement
+    result = conn.execute(
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/engine/base.py", line 1415, in execute
+    return meth(
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/sql/elements.py", line 523, in _execute_on_connection
+    return connection._execute_clauseelement(
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/engine/base.py", line 1637, in _execute_clauseelement
+    ret = self._execute_context(
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/engine/base.py", line 1842, in _execute_context
+    return self._exec_single_context(
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/engine/base.py", line 1982, in _exec_single_context
+    self._handle_dbapi_exception(
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/engine/base.py", line 2351, in _handle_dbapi_exception
+    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/engine/base.py", line 1963, in _exec_single_context
+    self.dialect.do_execute(
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/engine/default.py", line 943, in do_execute
+    cursor.execute(statement, parameters)
+sqlalchemy.exc.OperationalError: (sqlite3.OperationalError) no such column: produkt.status_mapowania
+[SQL: SELECT produkt.id AS produkt_id, produkt.nazwa AS produkt_nazwa, produkt.kategoria AS produkt_kategoria, produkt.cena AS produkt_cena, produkt.data_waznosci AS produkt_data_waznosci, produkt.paragon_id AS produkt_paragon_id, produkt.data_dodania AS produkt_data_dodania, produkt.ilosc_na_paragonie AS produkt_ilosc_na_paragonie, produkt.aktualna_ilosc AS produkt_aktualna_ilosc, produkt.status_mapowania AS produkt_status_mapowania, produkt.sugestie_mapowania AS produkt_sugestie_mapowania, produkt.zmapowany_do_id AS produkt_zmapowany_do_id 
+FROM produkt 
+WHERE ? = produkt.paragon_id]
+[parameters: (4,)]
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+2025-05-24 06:40:01,323 - spizarnia - ERROR - Database session error: (sqlite3.OperationalError) no such column: produkt.status_mapowania
+[SQL: SELECT produkt.id AS produkt_id, produkt.nazwa AS produkt_nazwa, produkt.kategoria AS produkt_kategoria, produkt.cena AS produkt_cena, produkt.data_waznosci AS produkt_data_waznosci, produkt.paragon_id AS produkt_paragon_id, produkt.data_dodania AS produkt_data_dodania, produkt.ilosc_na_paragonie AS produkt_ilosc_na_paragonie, produkt.aktualna_ilosc AS produkt_aktualna_ilosc, produkt.status_mapowania AS produkt_status_mapowania, produkt.sugestie_mapowania AS produkt_sugestie_mapowania, produkt.zmapowany_do_id AS produkt_zmapowany_do_id 
+FROM produkt 
+WHERE ? = produkt.paragon_id]
+[parameters: (4,)]
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+Traceback (most recent call last):
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/engine/base.py", line 1963, in _exec_single_context
+    self.dialect.do_execute(
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/engine/default.py", line 943, in do_execute
+    cursor.execute(statement, parameters)
+sqlite3.OperationalError: no such column: produkt.status_mapowania
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/marubo/PycharmProjects/webuiappgrocery/database.py", line 40, in get_db_session
+    yield session
+  File "/home/marubo/PycharmProjects/webuiappgrocery/routes/paragony.py", line 294, in usun_paragon
+    db.commit()
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/orm/session.py", line 2032, in commit
+    trans.commit(_to_root=True)
+  File "<string>", line 2, in commit
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/orm/state_changes.py", line 139, in _go
+    ret_value = fn(self, *arg, **kw)
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/orm/session.py", line 1313, in commit
+    self._prepare_impl()
+  File "<string>", line 2, in _prepare_impl
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/orm/state_changes.py", line 139, in _go
+    ret_value = fn(self, *arg, **kw)
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/orm/session.py", line 1288, in _prepare_impl
+    self.session.flush()
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/orm/session.py", line 4345, in flush
+    self._flush(objects)
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/orm/session.py", line 4480, in _flush
+    with util.safe_reraise():
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/util/langhelpers.py", line 224, in __exit__
+    raise exc_value.with_traceback(exc_tb)
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/orm/session.py", line 4441, in _flush
+    flush_context.execute()
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/orm/unitofwork.py", line 442, in execute
+    postsort_actions = self._generate_actions()
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/orm/unitofwork.py", line 400, in _generate_actions
+    if action.execute(self):
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/orm/unitofwork.py", line 532, in execute
+    self.dependency_processor.presort_deletes(uow, delete_states)
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/orm/dependency.py", line 450, in presort_deletes
+    history = uowcommit.get_attribute_history(
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/orm/unitofwork.py", line 283, in get_attribute_history
+    history = impl.get_history(
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/orm/attributes.py", line 1679, in get_history
+    current = self.get(state, dict_, passive=passive)
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/orm/attributes.py", line 1086, in get
+    value = self._fire_loader_callables(state, key, passive)
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/orm/attributes.py", line 1121, in _fire_loader_callables
+    return self.callable_(state, passive)
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/orm/strategies.py", line 978, in _load_for_state
+    return self._emit_lazyload(
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/orm/strategies.py", line 1141, in _emit_lazyload
+    result = session.execute(
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlmodel/orm/session.py", line 127, in execute
+    return super().execute(
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/orm/session.py", line 2365, in execute
+    return self._execute_internal(
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/orm/session.py", line 2251, in _execute_internal
+    result: Result[Any] = compile_state_cls.orm_execute_statement(
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/orm/context.py", line 306, in orm_execute_statement
+    result = conn.execute(
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/engine/base.py", line 1415, in execute
+    return meth(
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/sql/elements.py", line 523, in _execute_on_connection
+    return connection._execute_clauseelement(
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/engine/base.py", line 1637, in _execute_clauseelement
+    ret = self._execute_context(
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/engine/base.py", line 1842, in _execute_context
+    return self._exec_single_context(
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/engine/base.py", line 1982, in _exec_single_context
+    self._handle_dbapi_exception(
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/engine/base.py", line 2351, in _handle_dbapi_exception
+    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/engine/base.py", line 1963, in _exec_single_context
+    self.dialect.do_execute(
+  File "/home/marubo/PycharmProjects/webuiappgrocery/venv/lib/python3.10/site-packages/sqlalchemy/engine/default.py", line 943, in do_execute
+    cursor.execute(statement, parameters)
+sqlalchemy.exc.OperationalError: (sqlite3.OperationalError) no such column: produkt.status_mapowania
+[SQL: SELECT produkt.id AS produkt_id, produkt.nazwa AS produkt_nazwa, produkt.kategoria AS produkt_kategoria, produkt.cena AS produkt_cena, produkt.data_waznosci AS produkt_data_waznosci, produkt.paragon_id AS produkt_paragon_id, produkt.data_dodania AS produkt_data_dodania, produkt.ilosc_na_paragonie AS produkt_ilosc_na_paragonie, produkt.aktualna_ilosc AS produkt_aktualna_ilosc, produkt.status_mapowania AS produkt_status_mapowania, produkt.sugestie_mapowania AS produkt_sugestie_mapowania, produkt.zmapowany_do_id AS produkt_zmapowany_do_id 
+FROM produkt 
+WHERE ? = produkt.paragon_id]
+[parameters: (4,)]
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+2025-05-24 06:42:29,668 - spizarnia - INFO - Application started successfully
+2025-05-24 06:42:29,668 - spizarnia - INFO - Application started successfully

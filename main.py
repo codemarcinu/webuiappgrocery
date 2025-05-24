@@ -49,34 +49,20 @@ app.add_middleware(
 # Configure CORS with more restrictive settings
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=os.getenv("ALLOWED_ORIGINS", "http://localhost:8000").split(","),
+    allow_origins=["http://localhost:8000", "http://127.0.0.1:8000"],  # Only these domains!
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE"],
+    allow_methods=["*"],
     allow_headers=["*"],
-    max_age=3600,
 )
 
 # Add Gzip compression
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 
-# Add CSRF middleware
-app.add_middleware(
-    FastAPICSRFJinjaMiddleware,
-    secret=settings.SECRET_KEY,
-    cookie_name="csrf_token",
-    header_name="X-CSRF-Token",
-    cookie_samesite="lax",
-    cookie_secure=os.getenv("ENVIRONMENT") == "production"
-)
-
 # Mount static files
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-# Set up templates with CSRF context processor
-templates = Jinja2Templates(
-    directory="templates",
-    context_processors=[csrf_token_processor("csrf_token", "X-CSRF-Token")]
-)
+# Set up templates
+templates = Jinja2Templates(directory="templates")
 
 # Custom Jinja2 filters
 def from_json(value):

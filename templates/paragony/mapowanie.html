@@ -120,8 +120,7 @@ function mapToExisting(receiptProductId, pantryProductId) {
     fetch(`/api/produkty/mapuj/${receiptProductId}`, {
         method: 'POST',
         headers: {
-            'Content-Type': 'application/json',
-            'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+            'Content-Type': 'application/json'
         },
         body: JSON.stringify({
             pantry_product_id: pantryProductId
@@ -145,8 +144,7 @@ function mapAsNew(receiptProductId) {
     fetch(`/api/produkty/mapuj/${receiptProductId}`, {
         method: 'POST',
         headers: {
-            'Content-Type': 'application/json',
-            'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+            'Content-Type': 'application/json'
         },
         body: JSON.stringify({
             map_as_new: true
@@ -172,10 +170,7 @@ function ignoreProduct(receiptProductId) {
     }
     
     fetch(`/api/produkty/ignoruj/${receiptProductId}`, {
-        method: 'POST',
-        headers: {
-            'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
-        }
+        method: 'POST'
     })
     .then(response => response.json())
     .then(data => {
