@@ -153,11 +153,21 @@ async def dodaj_paragon(request: Request, file: UploadFile = File(...), komentar
         # Validate and save the file
         saved_path = await receipt_processor.validate_and_save_file(file)
         
-        # Create receipt record
+        # Create receipt record with transaction
         with get_session() as db:
-            paragon, paragon_id = await _create_paragon_record(
-                db, file.filename, saved_path, file.content_type, komentarz
-            )
+            try:
+                paragon, paragon_id = await _create_paragon_record(
+                    db, file.filename, saved_path, file.content_type, komentarz
+                )
+                db.commit()
+            except Exception as e:
+                db.rollback()
+                # Clean up saved file if database operation fails
+                try:
+                    Path(saved_path).unlink()
+                except OSError:
+                    pass
+                raise HTTPException(status_code=500, detail="Error creating receipt record")
         
         # Start Celery task for processing
         process_receipt_task.delay(paragon_id)
@@ -176,6 +186,12 @@ async def podglad_paragonu(request: Request, paragon_id: int):
     """Show receipt details and processing status"""
     with get_session() as db:
         paragon = await _get_paragon_or_404(db, paragon_id)
+        
+        # Update status if it's waiting for preview
+        if paragon.status_przetwarzania == StatusParagonu.OCZEKUJE_NA_PODGLAD:
+            paragon.status_przetwarzania = StatusParagonu.PODGLADNIETY_OCZEKUJE_NA_PRZETWORZENIE
+            db.commit()
+        
         return templates.TemplateResponse(
             "paragony/podglad.html",
             {
@@ -243,9 +259,25 @@ async def import_products_post(request: Request, paragon_id: int, session: Sessi
 @router.get("/uploads/{filename}")
 async def serve_receipt_file(filename: str):
     """Serve uploaded receipt files securely"""
+    # Prevent path traversal
+    if '..' in filename or filename.startswith('/'):
+        raise HTTPException(status_code=400, detail="Invalid filename")
+    
+    # Validate file extension
+    ext = filename.split('.')[-1].lower()
+    if ext not in settings.ALLOWED_EXTENSIONS:
+        raise HTTPException(status_code=400, detail="Invalid file type")
+    
     file_path = Path(settings.UPLOAD_FOLDER) / filename
     if not file_path.exists():
         raise HTTPException(status_code=404, detail="File not found")
+    
+    # Verify file is within upload directory
+    try:
+        file_path.resolve().relative_to(Path(settings.UPLOAD_FOLDER).resolve())
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid file path")
+    
     return FileResponse(file_path)
 
 @router.post("/usun/{paragon_id}", response_class=RedirectResponse)

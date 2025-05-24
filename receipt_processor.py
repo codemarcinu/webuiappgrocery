@@ -12,6 +12,7 @@ from models import StatusParagonu
 from ollama_client import OllamaError, OllamaTimeoutError, OllamaConnectionError
 from pydantic import BaseModel, Field, ValidationError, ConfigDict
 from datetime import date
+import uuid
 
 settings = get_settings()
 
@@ -105,14 +106,30 @@ class ReceiptProcessor:
             upload_dir.mkdir(parents=True, exist_ok=True)
             
             # Generate unique filename
-            file_extension = self.allowed_mime_types[magic.from_buffer(await file.read(2048), mime=True)]
+            content = await file.read(2048)
             await file.seek(0)
-            file_path = upload_dir / f"{file.filename}{file_extension}"
+            mime_type = magic.from_buffer(content, mime=True)
+            file_extension = self.allowed_mime_types[mime_type]
             
-            # Save file
-            with open(file_path, "wb") as buffer:
-                while chunk := await file.read(8192):
-                    buffer.write(chunk)
+            # Generate unique filename with UUID
+            unique_filename = f"{uuid.uuid4()}{file_extension}"
+            file_path = upload_dir / unique_filename
+            
+            # Save file with proper format handling
+            if mime_type == 'image/png':
+                # For PNG, preserve transparency
+                img = Image.open(io.BytesIO(content))
+                img.save(file_path, "PNG")
+            else:
+                # For other formats, convert to RGB and save as JPEG
+                img = Image.open(io.BytesIO(content))
+                if img.mode in ('RGBA', 'LA'):
+                    background = Image.new('RGB', img.size, (255, 255, 255))
+                    background.paste(img, mask=img.split()[-1])
+                    img = background
+                elif img.mode != 'RGB':
+                    img = img.convert('RGB')
+                img.save(file_path, "JPEG", quality=95)
             
             return file_path
         except Exception as e:
