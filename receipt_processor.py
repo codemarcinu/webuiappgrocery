@@ -82,7 +82,8 @@ class ReceiptProcessor:
     def ocr_reader(self):
         if self._ocr_reader is None:
             logger.info("Initializing EasyOCR reader...")
-            self._ocr_reader = easyocr.Reader(['pl'])
+            # Force CPU usage for EasyOCR
+            self._ocr_reader = easyocr.Reader(['pl'], gpu=False)
             logger.info("EasyOCR reader initialized successfully")
         return self._ocr_reader
 
