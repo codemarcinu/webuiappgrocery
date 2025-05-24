@@ -19,6 +19,10 @@ print_warning() {
     echo -e "${YELLOW}[!]${NC} $1"
 }
 
+print_info() {
+    echo -e "${YELLOW}[*]${NC} $1"
+}
+
 # Check if Python 3.8+ is installed
 print_status "Sprawdzanie wersji Pythona..."
 if command -v python3 &>/dev/null; then
@@ -89,14 +93,13 @@ if ! systemctl is-active --quiet ollama; then
 fi
 
 # Check if required Ollama model is available
-print_status "Sprawdzanie dostępności modelu bielik-local-q8:latest w Ollama..."
-if ! ollama list | grep -q "bielik-local-q8:latest"; then
-    print_warning "Model bielik-local-q8:latest nie jest zainstalowany w Ollama."
-    print_status "Aby pobrać model, wykonaj:"
-    echo -e "  ${YELLOW}ollama pull bielik-local-q8${NC}"
-    exit 1
+print_status "Sprawdzanie dostępności modelu bielik:latest w Ollama..."
+if ! ollama list | grep -q "bielik:latest"; then
+    print_warning "Model bielik:latest nie jest zainstalowany w Ollama."
+    print_info "Aby zainstalować model, wykonaj:"
+    echo -e "  ${YELLOW}ollama pull bielik${NC}"
 else
-    print_status "Model bielik-local-q8:latest jest dostępny w Ollama."
+    print_status "Model bielik:latest jest dostępny w Ollama."
 fi
 
 # Create necessary directories

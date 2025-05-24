@@ -101,4 +101,9 @@
 
 ## Ostatnia Aktualizacja
 Data: 24.05.2025
-Status: Zakończono implementację wszystkich funkcjonalności 
+Status: Zakończono implementację wszystkich funkcjonalności
+
+## Ważne: Dostroić i doprecyzować prompty dla modelu Bielik, aby:
+- Model zawsze zwracał poprawny, spójny JSON (osobno quantity dla sztuk, weight dla produktów na wagę)
+- Dodać przykłady poprawnego JSON-a w promptach
+- Przetestować różne warianty promptów na różnych paragonach 
