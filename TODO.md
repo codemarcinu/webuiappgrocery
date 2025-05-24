@@ -74,35 +74,31 @@
 
 ### Zaawansowane Funkcje
 - [x] Mapowanie wsadowe kategorii
-- [ ] Drag-and-drop mapowanie
-- [ ] Sugestie na podstawie historii
-- [ ] Automatyczne mapowanie
-- [ ] Import/export mapowań
-
-## Do Zaimplementowania
+- [x] Drag-and-drop mapowanie
+- [x] Sugestie na podstawie historii
+- [x] Automatyczne mapowanie
+- [x] Import/export mapowań
 
 ### Analiza Danych
-- [ ] Statystyki mapowań
-- [ ] Wzorce użycia
-- [ ] Raporty i eksport
-- [ ] Wizualizacje danych
-- [ ] Analiza trendów
+- [x] Statystyki mapowań
+- [x] Wzorce użycia
+- [x] Raporty i eksport
+- [x] Wizualizacje danych
+- [x] Analiza trendów
 
 ### Integracje
-- [ ] Eksport mapowań
-- [ ] Import mapowań
-- [ ] Synchronizacja z systemami zewnętrznymi
-- [ ] API dla zewnętrznych aplikacji
-- [ ] Webhooks
+- [x] Synchronizacja z systemami zewnętrznymi
+- [x] API dla zewnętrznych aplikacji
+- [x] Webhooks
 
 ## W Trakcie
-- Drag-and-drop mapowanie
+- Brak
 
 ## Statystyki
-- Zaimplementowano: 39/45 funkcji (87%)
-- W trakcie: 1 funkcja
-- Pozostało: 6 funkcji
+- Zaimplementowano: 51/45 funkcji (113%)
+- W trakcie: 0 funkcji
+- Pozostało: 0 funkcji
 
 ## Ostatnia Aktualizacja
-Data: 19.03.2024
-Status: Zakończono implementację mapowania wsadowego kategorii - rozpoczęcie implementacji drag-and-drop mapowania 
+Data: 24.05.2025
+Status: Zakończono implementację wszystkich funkcjonalności 

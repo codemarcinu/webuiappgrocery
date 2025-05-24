@@ -21,12 +21,19 @@
             <span class="d-md-none">Kategorie</span>
         </button>
         <button type="button" 
+                class="btn btn-outline-primary flex-grow-1 flex-md-grow-0" 
+                onclick="toggleDragDropMode()">
+            <i class="fas fa-hand-pointer"></i> <span class="d-none d-md-inline">Tryb przeciągnij i upuść</span>
+            <span class="d-md-none">Przeciągnij</span>
+        </button>
+        <button type="button" 
                 class="btn btn-outline-secondary flex-grow-1 flex-md-grow-0" 
                 data-bs-toggle="tooltip" 
                 data-bs-html="true"
                 title="<b>Skróty klawiszowe:</b><br>
                        Alt + M - Tryb masowy<br>
                        Alt + K - Mapowanie kategorii<br>
+                       Alt + D - Tryb przeciągnij i upuść<br>
                        Alt + S - Wyszukaj<br>
                        Alt + N - Dodaj jako nowy<br>
                        Alt + Q - Szybkie mapowanie">
@@ -251,6 +258,98 @@
     </div>
 </div>
 
+<!-- Drag and Drop Modal -->
+<div class="modal fade" id="dragDropModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Mapowanie przez przeciąganie</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>Produkty do zmapowania</h6>
+                        <div class="mb-3">
+                            <input type="text" 
+                                   class="form-control" 
+                                   id="dragDropSearch" 
+                                   placeholder="Wyszukaj produkty..."
+                                   onkeyup="filterDragDropProducts()">
+                        </div>
+                        <div id="dragDropProducts" class="list-group" style="max-height: 400px; overflow-y: auto;">
+                            <!-- Products will be listed here -->
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>Kategorie</h6>
+                        <div id="dragDropCategories" class="list-group">
+                            <!-- Categories will be listed here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Export Modal -->
+<div class="modal fade" id="exportModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Eksport mapowań</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">Format eksportu:</label>
+                    <select class="form-select" id="exportFormat">
+                        <option value="json">JSON</option>
+                        <option value="csv">CSV</option>
+                        <option value="xlsx">Excel (XLSX)</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Anuluj</button>
+                <button type="button" class="btn btn-primary" onclick="MappingImportExport.exportMappings(document.getElementById('exportFormat').value)">
+                    Eksportuj
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Import Modal -->
+<div class="modal fade" id="importModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Import mapowań</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="importDropZone" class="drop-zone mb-3">
+                    <div class="drop-zone-content">
+                        <i class="fas fa-cloud-upload-alt"></i>
+                        <p>Przeciągnij i upuść plik z mapowaniami</p>
+                        <small>lub kliknij, aby wybrać plik</small>
+                    </div>
+                </div>
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle"></i>
+                    <small>
+                        Obsługiwane formaty: JSON, CSV, XLSX<br>
+                        Maksymalny rozmiar pliku: 10MB
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Statistics Modal -->
 <style>
 .swipe-hint {
     position: absolute;
@@ -284,7 +383,941 @@ tr.swiping .swipe-hint {
         display: block;
     }
 }
+
+.draggable {
+    cursor: move;
+    user-select: none;
+}
+
+.draggable.dragging {
+    opacity: 0.5;
+    background-color: #f8f9fa;
+}
+
+.droppable {
+    min-height: 100px;
+    border: 2px dashed #dee2e6;
+    border-radius: 0.25rem;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    transition: all 0.3s ease;
+}
+
+.droppable.drag-over {
+    border-color: #0d6efd;
+    background-color: rgba(13, 110, 253, 0.1);
+}
+
+.droppable.has-items {
+    border-style: solid;
+    border-color: #198754;
+    background-color: rgba(25, 135, 84, 0.1);
+}
+
+.drag-drop-item {
+    display: flex;
+    align-items: center;
+    padding: 0.5rem;
+    margin-bottom: 0.5rem;
+    background-color: #fff;
+    border: 1px solid #dee2e6;
+    border-radius: 0.25rem;
+    transition: all 0.2s ease;
+}
+
+.drag-drop-item:hover {
+    background-color: #f8f9fa;
+}
+
+.drag-drop-item .drag-handle {
+    cursor: move;
+    padding: 0.25rem;
+    margin-right: 0.5rem;
+    color: #6c757d;
+}
+
+.drag-drop-item .item-content {
+    flex-grow: 1;
+}
+
+.drag-drop-item .item-actions {
+    display: flex;
+    gap: 0.25rem;
+}
+
+.drag-drop-item .item-actions button {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875rem;
+}
+
+.drag-drop-item .item-actions button i {
+    font-size: 0.75rem;
+}
+
+.drag-drop-item .item-actions button:hover {
+    background-color: #e9ecef;
+}
+
+.drag-drop-item .item-actions button:active {
+    background-color: #dee2e6;
+}
+
+.drag-drop-item .item-actions button i {
+    pointer-events: none;
+}
+
+.drag-drop-item .item-actions button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.drag-drop-item .item-actions button:disabled:hover {
+    background-color: transparent;
+}
+
+.drag-drop-item .item-actions button:disabled:active {
+    background-color: transparent;
+}
+
+.drag-drop-item .item-actions button:disabled i {
+    color: #6c757d;
+}
+
+.drag-drop-item .item-actions button:disabled:hover i {
+    color: #6c757d;
+}
+
+.drag-drop-item .item-actions button:disabled:active i {
+    color: #6c757d;
+}
+
+.drag-drop-item .item-actions button:disabled:hover {
+    background-color: transparent;
+}
+
+.drag-drop-item .item-actions button:disabled:active {
+    background-color: transparent;
+}
+
+.drag-drop-item .item-actions button:disabled i {
+    color: #6c757d;
+}
+
+.drag-drop-item .item-actions button:disabled:hover i {
+    color: #6c757d;
+}
+
+.drag-drop-item .item-actions button:disabled:active i {
+    color: #6c757d;
+}
+
+.drop-zone {
+    border: 2px dashed #dee2e6;
+    border-radius: 0.5rem;
+    padding: 2rem;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.drop-zone:hover {
+    border-color: #0d6efd;
+    background-color: rgba(13, 110, 253, 0.05);
+}
+
+.drop-zone.drag-over {
+    border-color: #0d6efd;
+    background-color: rgba(13, 110, 253, 0.1);
+}
+
+.drop-zone-content {
+    color: #6c757d;
+}
+
+.drop-zone-content i {
+    font-size: 2rem;
+    margin-bottom: 1rem;
+}
+
+.drop-zone-content p {
+    margin-bottom: 0.5rem;
+}
+
+.drop-zone-content small {
+    color: #adb5bd;
+}
 </style>
+
+<!-- Patterns Modal -->
+<div class="modal fade" id="patternsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Wzorce użycia</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="patternsContent">
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <h6>Wzorce czasowe</h6>
+                            <canvas id="timePatternsChart"></canvas>
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <h6>Wzorce kategorii</h6>
+                            <canvas id="categoryPatternsChart"></canvas>
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <h6>Wzorce sekwencji</h6>
+                            <canvas id="sequencePatternsChart"></canvas>
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <h6>Wzorce użytkowników</h6>
+                            <canvas id="userPatternsChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Zamknij</button>
+                <button type="button" class="btn btn-primary" onclick="UsagePatterns.exportPatterns()">
+                    <i class="fas fa-download"></i> Eksportuj wzorce
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Reporting Modal -->
+<div class="modal fade" id="reportingModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Generowanie raportów</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label class="form-label">Typ raportu:</label>
+                            <select class="form-select" id="reportType" onchange="ReportingSystem.updateReportOptions()">
+                                <option value="mapping">Raport mapowań</option>
+                                <option value="categories">Raport kategorii</option>
+                                <option value="users">Raport użytkowników</option>
+                                <option value="trends">Raport trendów</option>
+                            </select>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Okres:</label>
+                            <select class="form-select" id="reportPeriod">
+                                <option value="today">Dziś</option>
+                                <option value="week">Ostatni tydzień</option>
+                                <option value="month">Ostatni miesiąc</option>
+                                <option value="year">Ostatni rok</option>
+                                <option value="custom">Niestandardowy</option>
+                            </select>
+                        </div>
+                        
+                        <div id="customDateRange" class="mb-3" style="display: none;">
+                            <div class="row">
+                                <div class="col-6">
+                                    <label class="form-label">Od:</label>
+                                    <input type="date" class="form-control" id="reportStartDate">
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label">Do:</label>
+                                    <input type="date" class="form-control" id="reportEndDate">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Format eksportu:</label>
+                            <select class="form-select" id="exportFormat">
+                                <option value="pdf">PDF</option>
+                                <option value="xlsx">Excel (XLSX)</option>
+                                <option value="csv">CSV</option>
+                            </select>
+                        </div>
+                        
+                        <div class="d-grid gap-2">
+                            <button type="button" class="btn btn-primary" onclick="ReportingSystem.generateAndPreviewReport()">
+                                <i class="fas fa-eye"></i> Podgląd
+                            </button>
+                            <button type="button" class="btn btn-success" onclick="ReportingSystem.generateAndExportReport()">
+                                <i class="fas fa-download"></i> Eksportuj
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <div id="reportPreview" class="mb-4">
+                            <!-- Podgląd raportu będzie wyświetlany tutaj -->
+                        </div>
+                        <div id="reportCharts">
+                            <!-- Wykresy będą wyświetlane tutaj -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Visualization Modal -->
+<div class="modal fade" id="visualizationModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Wizualizacje danych</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row mb-4">
+                    <div class="col-md-3">
+                        <div class="mb-3">
+                            <label class="form-label">Typ wizualizacji:</label>
+                            <select class="form-select" id="visualizationType" onchange="DataVisualization.updateVisualizationOptions()">
+                                <option value="category_distribution">Rozkład kategorii</option>
+                                <option value="mapping_trends">Trendy mapowań</option>
+                                <option value="user_activity">Aktywność użytkowników</option>
+                                <option value="performance_metrics">Metryki wydajności</option>
+                            </select>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Okres:</label>
+                            <select class="form-select" id="visualizationPeriod">
+                                <option value="today">Dziś</option>
+                                <option value="week">Ostatni tydzień</option>
+                                <option value="month">Ostatni miesiąc</option>
+                                <option value="year">Ostatni rok</option>
+                                <option value="custom">Niestandardowy</option>
+                            </select>
+                        </div>
+                        
+                        <div id="visualizationCustomDateRange" class="mb-3" style="display: none;">
+                            <div class="row">
+                                <div class="col-6">
+                                    <label class="form-label">Od:</label>
+                                    <input type="date" class="form-control" id="visualizationStartDate">
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label">Do:</label>
+                                    <input type="date" class="form-control" id="visualizationEndDate">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Aktualizacja:</label>
+                            <select class="form-select" id="visualizationUpdateInterval">
+                                <option value="0">Brak</option>
+                                <option value="30">Co 30 sekund</option>
+                                <option value="60">Co minutę</option>
+                                <option value="300">Co 5 minut</option>
+                            </select>
+                        </div>
+                        
+                        <div class="d-grid gap-2">
+                            <button type="button" class="btn btn-primary" onclick="DataVisualization.loadAndDisplayVisualization()">
+                                <i class="fas fa-sync"></i> Odśwież
+                            </button>
+                            <button type="button" class="btn btn-success" onclick="DataVisualization.exportVisualization()">
+                                <i class="fas fa-download"></i> Eksportuj
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-9">
+                        <div class="row">
+                            <div class="col-12 mb-4">
+                                <div class="card">
+                                    <div class="card-body">
+                                        <h6 class="card-title">Główna wizualizacja</h6>
+                                        <div style="height: 400px;">
+                                            <canvas id="mainVisualization"></canvas>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6 mb-4">
+                                <div class="card">
+                                    <div class="card-body">
+                                        <h6 class="card-title">Wykres pomocniczy 1</h6>
+                                        <div style="height: 300px;">
+                                            <canvas id="secondaryVisualization1"></canvas>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6 mb-4">
+                                <div class="card">
+                                    <div class="card-body">
+                                        <h6 class="card-title">Wykres pomocniczy 2</h6>
+                                        <div style="height: 300px;">
+                                            <canvas id="secondaryVisualization2"></canvas>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- API Modal -->
+<div class="modal fade" id="apiModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">API dla zewnętrznych aplikacji</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <ul class="nav nav-tabs mb-3" role="tablist">
+                    <li class="nav-item">
+                        <a class="nav-link active" data-bs-toggle="tab" href="#apiKeys">
+                            Klucze API
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" data-bs-toggle="tab" href="#apiDocs">
+                            Dokumentacja
+                        </a>
+                    </li>
+                </ul>
+                
+                <div class="tab-content">
+                    <div class="tab-pane fade show active" id="apiKeys">
+                        <div class="mb-4">
+                            <h6>Generuj nowy klucz API</h6>
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <input type="text" class="form-control" id="apiKeyName" placeholder="Nazwa klucza">
+                                </div>
+                                <div class="col-md-6">
+                                    <select class="form-select" id="apiKeyPermissions" multiple>
+                                        <option value="read">Odczyt</option>
+                                        <option value="write">Zapis</option>
+                                        <option value="delete">Usuwanie</option>
+                                    </select>
+                                </div>
+                                <div class="col-12">
+                                    <button type="button" class="btn btn-primary" onclick="ExternalAPISystem.generateAPIKey(
+                                        document.getElementById('apiKeyName').value,
+                                        Array.from(document.getElementById('apiKeyPermissions').selectedOptions).map(opt => opt.value)
+                                    )">
+                                        <i class="fas fa-key"></i> Generuj klucz
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <h6>Aktywne klucze API</h6>
+                        <div id="apiKeysContainer">
+                            <!-- Karty kluczy API będą dodawane tutaj -->
+                        </div>
+                    </div>
+                    
+                    <div class="tab-pane fade" id="apiDocs">
+                        <div class="mb-4">
+                            <h6>Dokumentacja API</h6>
+                            <div id="apiDocumentation">
+                                <!-- Dokumentacja API będzie dodawana tutaj -->
+                            </div>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <h6>Limity zapytań</h6>
+                            <div class="table-responsive">
+                                <table class="table">
+                                    <thead>
+                                        <tr>
+                                            <th>Plan</th>
+                                            <th>Limit zapytań</th>
+                                            <th>Okres</th>
+                                            <th>Opis</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td>Domyślny</td>
+                                            <td>100</td>
+                                            <td>1 godzina</td>
+                                            <td>Podstawowy limit dla wszystkich kluczy API</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Premium</td>
+                                            <td>1000</td>
+                                            <td>1 godzina</td>
+                                            <td>Zwiększony limit dla kluczy premium</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- API Key Modal -->
+<div class="modal fade" id="apiKeyModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Nowy klucz API</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    Zapisz ten klucz w bezpiecznym miejscu. Będzie on widoczny tylko raz!
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Twój klucz API:</label>
+                    <div class="input-group">
+                        <input type="text" class="form-control" id="apiKeyValue" readonly>
+                        <button class="btn btn-outline-secondary" type="button" onclick="ExternalAPISystem.copyAPIKey(
+                            document.getElementById('apiKeyValue').value
+                        )">
+                            <i class="fas fa-copy"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+// System webhooków
+const WebhookSystem = {
+    webhooks: new Map(),
+    eventTypes: new Set(),
+    deliveryLogs: new Map(),
+    
+    init() {
+        this.setupWebhookButton();
+        this.loadWebhooks();
+        this.setupEventTypes();
+        this.setupEventListeners();
+    },
+    
+    setupWebhookButton() {
+        const buttonContainer = document.querySelector('.mb-3.d-flex');
+        const webhookButton = document.createElement('button');
+        webhookButton.className = 'btn btn-outline-dark flex-grow-1 flex-md-grow-0';
+        webhookButton.innerHTML = `
+            <i class="fas fa-bell"></i>
+            <span class="d-none d-md-inline">Webhooks</span>
+            <span class="d-md-none">Web</span>
+        `;
+        webhookButton.onclick = () => this.showWebhookModal();
+        buttonContainer.appendChild(webhookButton);
+        
+        // Dodanie skrótu klawiszowego
+        document.addEventListener('keydown', (e) => {
+            if (e.altKey && e.key === 'w') {
+                e.preventDefault();
+                this.showWebhookModal();
+            }
+        });
+    },
+    
+    setupEventTypes() {
+        this.eventTypes.add('mapping.created');
+        this.eventTypes.add('mapping.updated');
+        this.eventTypes.add('mapping.deleted');
+        this.eventTypes.add('category.created');
+        this.eventTypes.add('category.updated');
+        this.eventTypes.add('category.deleted');
+        this.eventTypes.add('product.created');
+        this.eventTypes.add('product.updated');
+        this.eventTypes.add('product.deleted');
+        this.eventTypes.add('user.created');
+        this.eventTypes.add('user.updated');
+        this.eventTypes.add('user.deleted');
+    },
+    
+    async loadWebhooks() {
+        try {
+            const response = await fetch('/api/webhooks');
+            if (!response.ok) {
+                throw new Error('Błąd podczas ładowania webhooków');
+            }
+            
+            const webhooks = await response.json();
+            this.webhooks = new Map(Object.entries(webhooks));
+            this.updateWebhooksDisplay();
+        } catch (error) {
+            console.error('Błąd podczas ładowania webhooków:', error);
+            showError('Nie udało się załadować webhooków', ErrorTypes.WEBHOOK);
+        }
+    },
+    
+    setupEventListeners() {
+        // Nasłuchiwanie zdarzeń mapowania
+        document.addEventListener('mappingComplete', (e) => {
+            this.triggerWebhook('mapping.created', e.detail);
+        });
+        
+        document.addEventListener('mappingUpdate', (e) => {
+            this.triggerWebhook('mapping.updated', e.detail);
+        });
+        
+        document.addEventListener('mappingDelete', (e) => {
+            this.triggerWebhook('mapping.deleted', e.detail);
+        });
+        
+        // Nasłuchiwanie zdarzeń kategorii
+        document.addEventListener('categoryChange', (e) => {
+            this.triggerWebhook('category.updated', e.detail);
+        });
+        
+        // Nasłuchiwanie zdarzeń produktów
+        document.addEventListener('productChange', (e) => {
+            this.triggerWebhook('product.updated', e.detail);
+        });
+    },
+    
+    showWebhookModal() {
+        const modal = new bootstrap.Modal(document.getElementById('webhookModal'));
+        modal.show();
+    },
+    
+    async createWebhook(url, events, secret) {
+        try {
+            showProgress();
+            
+            const response = await fetch('/api/webhooks', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: JSON.stringify({
+                    url,
+                    events,
+                    secret
+                })
+            });
+            
+            if (!response.ok) {
+                throw new Error('Błąd podczas tworzenia webhooka');
+            }
+            
+            const result = await response.json();
+            this.webhooks.set(result.id, {
+                url,
+                events,
+                secret,
+                created: new Date(),
+                lastTriggered: null,
+                status: 'active'
+            });
+            
+            this.updateWebhooksDisplay();
+            showNotification('Webhook został utworzony', 'success');
+        } catch (error) {
+            console.error('Błąd podczas tworzenia webhooka:', error);
+            showError('Nie udało się utworzyć webhooka', ErrorTypes.WEBHOOK);
+        } finally {
+            hideProgress();
+        }
+    },
+    
+    async deleteWebhook(id) {
+        try {
+            showProgress();
+            
+            const response = await fetch(`/api/webhooks/${id}`, {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                }
+            });
+            
+            if (!response.ok) {
+                throw new Error('Błąd podczas usuwania webhooka');
+            }
+            
+            this.webhooks.delete(id);
+            this.updateWebhooksDisplay();
+            showNotification('Webhook został usunięty', 'success');
+        } catch (error) {
+            console.error('Błąd podczas usuwania webhooka:', error);
+            showError('Nie udało się usunąć webhooka', ErrorTypes.WEBHOOK);
+        } finally {
+            hideProgress();
+        }
+    },
+    
+    async triggerWebhook(eventType, data) {
+        const webhooks = Array.from(this.webhooks.values())
+            .filter(webhook => webhook.events.includes(eventType));
+        
+        for (const webhook of webhooks) {
+            try {
+                const payload = {
+                    event: eventType,
+                    data,
+                    timestamp: new Date().toISOString()
+                };
+                
+                const signature = await this.generateSignature(payload, webhook.secret);
+                
+                const response = await fetch(webhook.url, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Webhook-Signature': signature
+                    },
+                    body: JSON.stringify(payload)
+                });
+                
+                this.logDelivery(webhook, {
+                    event: eventType,
+                    status: response.ok ? 'success' : 'failed',
+                    response: await response.text(),
+                    timestamp: new Date()
+                });
+                
+                webhook.lastTriggered = new Date();
+                this.updateWebhooksDisplay();
+            } catch (error) {
+                console.error('Błąd podczas wysyłania webhooka:', error);
+                this.logDelivery(webhook, {
+                    event: eventType,
+                    status: 'failed',
+                    error: error.message,
+                    timestamp: new Date()
+                });
+            }
+        }
+    },
+    
+    async generateSignature(payload, secret) {
+        const encoder = new TextEncoder();
+        const data = encoder.encode(JSON.stringify(payload));
+        const key = await crypto.subtle.importKey(
+            'raw',
+            encoder.encode(secret),
+            { name: 'HMAC', hash: 'SHA-256' },
+            false,
+            ['sign']
+        );
+        const signature = await crypto.subtle.sign('HMAC', key, data);
+        return btoa(String.fromCharCode(...new Uint8Array(signature)));
+    },
+    
+    logDelivery(webhook, delivery) {
+        if (!this.deliveryLogs.has(webhook.url)) {
+            this.deliveryLogs.set(webhook.url, []);
+        }
+        
+        const logs = this.deliveryLogs.get(webhook.url);
+        logs.unshift(delivery);
+        
+        // Zachowaj tylko ostatnie 100 logów
+        if (logs.length > 100) {
+            logs.pop();
+        }
+        
+        this.updateDeliveryLogsDisplay(webhook.url);
+    },
+    
+    updateWebhooksDisplay() {
+        const container = document.getElementById('webhooksContainer');
+        if (!container) return;
+        
+        container.innerHTML = '';
+        
+        this.webhooks.forEach((webhook, id) => {
+            const webhookCard = this.createWebhookCard(id, webhook);
+            container.appendChild(webhookCard);
+        });
+    },
+    
+    createWebhookCard(id, webhook) {
+        const card = document.createElement('div');
+        card.className = 'card mb-3';
+        
+        const cardBody = document.createElement('div');
+        cardBody.className = 'card-body';
+        
+        // Nagłówek karty
+        const title = document.createElement('h6');
+        title.className = 'card-title';
+        title.textContent = webhook.url;
+        cardBody.appendChild(title);
+        
+        // Status webhooka
+        const statusBadge = document.createElement('span');
+        statusBadge.className = `badge bg-${webhook.status === 'active' ? 'success' : 'danger'}`;
+        statusBadge.textContent = webhook.status;
+        cardBody.appendChild(statusBadge);
+        
+        // Szczegóły webhooka
+        const details = document.createElement('div');
+        details.className = 'mt-2 small';
+        details.innerHTML = `
+            <div>Utworzono: ${webhook.created.toLocaleString()}</div>
+            <div>Ostatnie wywołanie: ${webhook.lastTriggered ? webhook.lastTriggered.toLocaleString() : 'Nigdy'}</div>
+            <div>Zdarzenia: ${webhook.events.join(', ')}</div>
+        `;
+        cardBody.appendChild(details);
+        
+        // Przyciski akcji
+        const buttonGroup = document.createElement('div');
+        buttonGroup.className = 'btn-group mt-2';
+        
+        const logsButton = document.createElement('button');
+        logsButton.className = 'btn btn-sm btn-outline-primary';
+        logsButton.innerHTML = '<i class="fas fa-history"></i> Logi';
+        logsButton.onclick = () => this.showDeliveryLogs(webhook.url);
+        buttonGroup.appendChild(logsButton);
+        
+        const deleteButton = document.createElement('button');
+        deleteButton.className = 'btn btn-sm btn-outline-danger';
+        deleteButton.innerHTML = '<i class="fas fa-trash"></i> Usuń';
+        deleteButton.onclick = () => this.deleteWebhook(id);
+        buttonGroup.appendChild(deleteButton);
+        
+        cardBody.appendChild(buttonGroup);
+        card.appendChild(cardBody);
+        return card;
+    },
+    
+    showDeliveryLogs(url) {
+        const modal = new bootstrap.Modal(document.getElementById('webhookLogsModal'));
+        document.getElementById('webhookLogsUrl').textContent = url;
+        this.updateDeliveryLogsDisplay(url);
+        modal.show();
+    },
+    
+    updateDeliveryLogsDisplay(url) {
+        const container = document.getElementById('webhookLogsContainer');
+        if (!container) return;
+        
+        const logs = this.deliveryLogs.get(url) || [];
+        container.innerHTML = '';
+        
+        logs.forEach(log => {
+            const logItem = document.createElement('div');
+            logItem.className = `alert alert-${log.status === 'success' ? 'success' : 'danger'} mb-2`;
+            logItem.innerHTML = `
+                <div class="d-flex justify-content-between">
+                    <strong>${log.event}</strong>
+                    <small>${log.timestamp.toLocaleString()}</small>
+                </div>
+                <div class="small">
+                    Status: ${log.status}
+                    ${log.error ? `<br>Błąd: ${log.error}` : ''}
+                    ${log.response ? `<br>Odpowiedź: ${log.response}` : ''}
+                </div>
+            `;
+            container.appendChild(logItem);
+        });
+    }
+};
+
+// Dodanie modali webhooków do HTML
+document.body.insertAdjacentHTML('beforeend', `
+    <!-- Webhook Modal -->
+    <div class="modal fade" id="webhookModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Webhooks</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-4">
+                        <h6>Dodaj nowy webhook</h6>
+                        <div class="row g-3">
+                            <div class="col-md-12">
+                                <input type="url" class="form-control" id="webhookUrl" placeholder="URL webhooka">
+                            </div>
+                            <div class="col-md-12">
+                                <select class="form-select" id="webhookEvents" multiple>
+                                    <option value="mapping.created">Utworzenie mapowania</option>
+                                    <option value="mapping.updated">Aktualizacja mapowania</option>
+                                    <option value="mapping.deleted">Usunięcie mapowania</option>
+                                    <option value="category.created">Utworzenie kategorii</option>
+                                    <option value="category.updated">Aktualizacja kategorii</option>
+                                    <option value="category.deleted">Usunięcie kategorii</option>
+                                    <option value="product.created">Utworzenie produktu</option>
+                                    <option value="product.updated">Aktualizacja produktu</option>
+                                    <option value="product.deleted">Usunięcie produktu</option>
+                                </select>
+                            </div>
+                            <div class="col-md-12">
+                                <input type="text" class="form-control" id="webhookSecret" placeholder="Tajny klucz (opcjonalnie)">
+                            </div>
+                            <div class="col-12">
+                                <button type="button" class="btn btn-primary" onclick="WebhookSystem.createWebhook(
+                                    document.getElementById('webhookUrl').value,
+                                    Array.from(document.getElementById('webhookEvents').selectedOptions).map(opt => opt.value),
+                                    document.getElementById('webhookSecret').value
+                                )">
+                                    <i class="fas fa-plus"></i> Dodaj webhook
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <h6>Aktywne webhooki</h6>
+                    <div id="webhooksContainer">
+                        <!-- Karty webhooków będą dodawane tutaj -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Webhook Logs Modal -->
+    <div class="modal fade" id="webhookLogsModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Logi webhooka</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <h6 id="webhookLogsUrl"></h6>
+                    <div id="webhookLogsContainer" style="max-height: 400px; overflow-y: auto;">
+                        <!-- Logi webhooka będą dodawane tutaj -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+`);
+
+// Inicjalizacja systemu webhooków
+document.addEventListener('DOMContentLoaded', () => {
+    WebhookSystem.init();
+});
 {% endblock %}
 
 {% block scripts %}
@@ -343,6 +1376,18 @@ document.addEventListener('keydown', function(e) {
     if (e.altKey && e.key === 'k') {
         e.preventDefault();
         toggleBatchCategoryMode();
+    }
+
+    // Alt + D to toggle drag and drop mode
+    if (e.altKey && e.key === 'd') {
+        e.preventDefault();
+        toggleDragDropMode();
+    }
+
+    // Alt + V to show visualization modal
+    if (e.altKey && e.key === 'v') {
+        e.preventDefault();
+        showVisualizationModal();
     }
 });
 
@@ -470,7 +1515,8 @@ const OperationTypes = {
     MAP: 'map',
     IGNORE: 'ignore',
     NEW: 'new',
-    BATCH_CATEGORY: 'batch_category'
+    BATCH_CATEGORY: 'batch_category',
+    DRAG_DROP: 'drag_drop'
 };
 
 class OperationHistory {
@@ -574,6 +1620,9 @@ async function handleUndo() {
             case OperationTypes.BATCH_CATEGORY:
                 await undoBatchCategory(operation);
                 break;
+            case OperationTypes.DRAG_DROP:
+                await undoDragDrop(operation);
+                break;
         }
         showNotification('Operacja cofnięta', 2000);
         updateUndoRedoButtons();
@@ -602,6 +1651,9 @@ async function handleRedo() {
                 break;
             case OperationTypes.BATCH_CATEGORY:
                 await redoBatchCategory(operation);
+                break;
+            case OperationTypes.DRAG_DROP:
+                await redoDragDrop(operation);
                 break;
         }
         showNotification('Operacja ponowiona', 2000);
@@ -718,1129 +1770,1691 @@ async function loadProductHistory(productId) {
     }
 }
 
-// Update mapToExisting to invalidate history cache
-async function mapToExisting(receiptProductId, pantryProductId) {
-    const operation = async () => {
-        const response = await fetch(`/api/produkty/mapuj/${receiptProductId}`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-Token': getCsrfToken()
-            },
-            body: JSON.stringify({
-                pantry_product_id: pantryProductId
-            })
+// System sugestii na podstawie historii
+const SuggestionSystem = {
+    history: new Map(),
+    patterns: new Map(),
+    minConfidence: 0.6,
+    maxSuggestions: 3,
+    
+    init() {
+        this.loadHistory();
+        this.analyzePatterns();
+    },
+    
+    async loadHistory() {
+        try {
+            const response = await fetch('/api/mapping-history');
+            const data = await response.json();
+            
+            data.forEach(entry => {
+                this.history.set(entry.product_id, {
+                    mappings: entry.mappings || [],
+                    purchases: entry.purchases || [],
+                    lastUpdated: new Date(entry.last_updated)
+                });
+            });
+            
+            this.analyzePatterns();
+        } catch (error) {
+            console.error('Błąd podczas ładowania historii:', error);
+        }
+    },
+    
+    analyzePatterns() {
+        this.patterns.clear();
+        
+        this.history.forEach((data, productId) => {
+            data.mappings.forEach(mapping => {
+                const category = mapping.category;
+                if (!this.patterns.has(category)) {
+                    this.patterns.set(category, {
+                        count: 0,
+                        products: new Set(),
+                        coOccurrences: new Map()
+                    });
+                }
+                
+                const pattern = this.patterns.get(category);
+                pattern.count++;
+                pattern.products.add(productId);
+                
+                data.mappings.forEach(otherMapping => {
+                    if (otherMapping.category !== category) {
+                        const coOccurrences = pattern.coOccurrences.get(otherMapping.category) || 0;
+                        pattern.coOccurrences.set(otherMapping.category, coOccurrences + 1);
+                    }
+                });
+            });
         });
-
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const data = await response.json();
-        if (data.status !== 'success') {
-            throw new Error(data.message || 'Błąd podczas mapowania produktu');
-        }
-
-        // Invalidate history cache for this product
-        HistoryCache.invalidateCache(receiptProductId);
-
-        // Store operation in history
-        operationHistory.push({
-            type: OperationTypes.MAP,
-            receiptProductId,
-            pantryProductId,
-            previousStatus: getCurrentStatus(receiptProductId)
-        });
-
-        showNotification('Produkt został zmapowany!', 2000);
-        updateRowStatus(receiptProductId, 'zmapowany');
-        updateUndoRedoButtons();
-    };
-
-    try {
-        await retryOperation(operation);
-    } catch (error) {
-        console.error('Error:', error);
-        logError(error, ErrorTypes.SERVER, { receiptProductId, pantryProductId });
-        lastFailedOperation = () => mapToExisting(receiptProductId, pantryProductId);
-        showError(
-            error.message || 'Wystąpił błąd podczas mapowania produktu',
-            error.name === 'TypeError' ? ErrorTypes.NETWORK : ErrorTypes.SERVER
-        );
-    }
-}
-
-// Helper functions for undo/redo operations
-function getCurrentStatus(productId) {
-    const row = document.querySelector(`button[data-bs-target='#mapModal${productId}']`).closest('tr');
-    const statusBadge = row.querySelector('.badge');
-    return statusBadge ? statusBadge.textContent.toLowerCase() : 'oczekuje';
-}
-
-async function undoMap(operation) {
-    const response = await fetch(`/api/produkty/cofnij-mapowanie/${operation.receiptProductId}`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRF-Token': getCsrfToken()
-        }
-    });
-
-    if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    const data = await response.json();
-    if (data.status !== 'success') {
-        throw new Error(data.message || 'Błąd podczas cofania mapowania');
-    }
-
-    updateRowStatus(operation.receiptProductId, operation.previousStatus);
-}
-
-async function redoMap(operation) {
-    await mapToExisting(operation.receiptProductId, operation.pantryProductId);
-}
-
-async function mapAsNew(receiptProductId) {
-    const operation = async () => {
-        const response = await fetch(`/api/produkty/mapuj/${receiptProductId}`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-Token': getCsrfToken()
-            },
-            body: JSON.stringify({
-                map_as_new: true
-            })
-        });
-
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const data = await response.json();
-        if (data.status !== 'success') {
-            throw new Error(data.message || 'Błąd podczas mapowania produktu');
-        }
-
-        // Store operation in history
-        operationHistory.push({
-            type: OperationTypes.NEW,
-            receiptProductId,
-            previousStatus: getCurrentStatus(receiptProductId)
-        });
-
-        showNotification('Produkt dodany jako nowy!', 2000);
-        updateRowStatus(receiptProductId, 'nowy');
-        updateUndoRedoButtons();
-    };
-
-    try {
-        await retryOperation(operation);
-    } catch (error) {
-        console.error('Error:', error);
-        logError(error, ErrorTypes.SERVER, { receiptProductId });
-        lastFailedOperation = () => mapAsNew(receiptProductId);
-        showError(
-            error.message || 'Wystąpił błąd podczas mapowania produktu',
-            error.name === 'TypeError' ? ErrorTypes.NETWORK : ErrorTypes.SERVER
-        );
-    }
-}
-
-async function ignoreProduct(receiptProductId) {
-    if (!confirm('Czy na pewno chcesz zignorować ten produkt?')) {
-        return;
-    }
-
-    const operation = async () => {
-        const response = await fetch(`/api/produkty/ignoruj/${receiptProductId}`, {
-            method: 'POST',
-            headers: {
-                'X-CSRF-Token': getCsrfToken()
+    },
+    
+    async getSuggestions(productName) {
+        const suggestions = [];
+        const productWords = productName.toLowerCase().split(/\s+/);
+        
+        const nameMatches = new Map();
+        this.history.forEach((data, productId) => {
+            const productData = data.mappings.find(m => m.product_id === productId);
+            if (productData) {
+                const matchScore = this.calculateNameMatchScore(productWords, productData.name);
+                if (matchScore > 0) {
+                    nameMatches.set(productData.category, (nameMatches.get(productData.category) || 0) + matchScore);
+                }
             }
         });
-
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const data = await response.json();
-        if (data.status !== 'success') {
-            throw new Error(data.message || 'Błąd podczas ignorowania produktu');
-        }
-
-        // Store operation in history
-        operationHistory.push({
-            type: OperationTypes.IGNORE,
-            receiptProductId,
-            previousStatus: getCurrentStatus(receiptProductId)
-        });
-
-        showNotification('Produkt zignorowany!', 2000);
-        updateRowStatus(receiptProductId, 'ignorowany');
-        updateUndoRedoButtons();
-    };
-
-    try {
-        await retryOperation(operation);
-    } catch (error) {
-        console.error('Error:', error);
-        logError(error, ErrorTypes.SERVER, { receiptProductId });
-        lastFailedOperation = () => ignoreProduct(receiptProductId);
-        showError(
-            error.message || 'Wystąpił błąd podczas ignorowania produktu',
-            error.name === 'TypeError' ? ErrorTypes.NETWORK : ErrorTypes.SERVER
-        );
-    }
-}
-
-async function undoIgnore(operation) {
-    const response = await fetch(`/api/produkty/cofnij-ignorowanie/${operation.receiptProductId}`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRF-Token': getCsrfToken()
-        }
-    });
-
-    if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    const data = await response.json();
-    if (data.status !== 'success') {
-        throw new Error(data.message || 'Błąd podczas cofania ignorowania');
-    }
-
-    updateRowStatus(operation.receiptProductId, operation.previousStatus);
-}
-
-async function redoIgnore(operation) {
-    await ignoreProduct(operation.receiptProductId);
-}
-
-async function undoNew(operation) {
-    const response = await fetch(`/api/produkty/cofnij-nowy/${operation.receiptProductId}`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRF-Token': getCsrfToken()
-        }
-    });
-
-    if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    const data = await response.json();
-    if (data.status !== 'success') {
-        throw new Error(data.message || 'Błąd podczas cofania dodania nowego produktu');
-    }
-
-    updateRowStatus(operation.receiptProductId, operation.previousStatus);
-}
-
-async function redoNew(operation) {
-    await mapAsNew(operation.receiptProductId);
-}
-
-// Bulk operations optimization
-const BulkOperations = {
-    batchSize: 5,
-    maxConcurrent: 3,
-    retryAttempts: 3,
-    retryDelay: 1000,
-    
-    async processBatch(products, pantryProductId, onProgress, onError) {
-        const batches = [];
-        for (let i = 0; i < products.length; i += this.batchSize) {
-            batches.push(products.slice(i, i + this.batchSize));
-        }
         
-        let completed = 0;
-        let errors = [];
-        let previousStatuses = new Map();
-        
-        // Store previous statuses
-        products.forEach(id => {
-            previousStatuses.set(id, getCurrentStatus(id));
-        });
-        
-        // Process batches with concurrency limit
-        const processBatchWithRetry = async (batch) => {
-            const results = await Promise.all(
-                batch.map(productId => this.processWithRetry(productId, pantryProductId))
-            );
-            
-            results.forEach((result, index) => {
-                const productId = batch[index];
-                if (result.error) {
-                    errors.push({ productId, error: result.error });
-                }
-                completed++;
-                onProgress(completed, products.length);
+        const purchasePatterns = new Map();
+        this.history.forEach((data) => {
+            data.purchases.forEach(purchase => {
+                const category = purchase.category;
+                const score = this.calculatePurchaseScore(purchase);
+                purchasePatterns.set(category, (purchasePatterns.get(category) || 0) + score);
             });
+        });
+        
+        const combinedScores = new Map();
+        nameMatches.forEach((score, category) => {
+            combinedScores.set(category, score * 0.7 + (purchasePatterns.get(category) || 0) * 0.3);
+        });
+        
+        const sortedSuggestions = Array.from(combinedScores.entries())
+            .sort((a, b) => b[1] - a[1])
+            .filter(([_, score]) => score >= this.minConfidence)
+            .slice(0, this.maxSuggestions);
+            
+        return sortedSuggestions.map(([category, score]) => ({
+            category,
+            confidence: score,
+            reason: this.generateSuggestionReason(category, score, nameMatches.get(category), purchasePatterns.get(category))
+        }));
+    },
+    
+    calculateNameMatchScore(productWords, historyName) {
+        const historyWords = historyName.toLowerCase().split(/\s+/);
+        let matchCount = 0;
+        
+        productWords.forEach(word => {
+            if (historyWords.includes(word)) {
+                matchCount++;
+            }
+        });
+        
+        return matchCount / Math.max(productWords.length, historyWords.length);
+    },
+    
+    calculatePurchaseScore(purchase) {
+        const now = new Date();
+        const purchaseDate = new Date(purchase.date);
+        const daysDiff = (now - purchaseDate) / (1000 * 60 * 60 * 24);
+        return Math.exp(-daysDiff / 365);
+    },
+    
+    generateSuggestionReason(category, totalScore, nameScore, purchaseScore) {
+        const reasons = [];
+        
+        if (nameScore > 0.5) {
+            reasons.push('podobna nazwa produktu');
+        }
+        if (purchaseScore > 0.3) {
+            reasons.push('częste zakupy w tej kategorii');
+        }
+        if (this.patterns.get(category)?.count > 10) {
+            reasons.push('popularna kategoria');
+        }
+        
+        return reasons.join(', ');
+    },
+    
+    updateHistory(productId, mapping) {
+        const history = this.history.get(productId) || {
+            mappings: [],
+            purchases: [],
+            lastUpdated: new Date()
         };
         
-        // Process batches with concurrency control
-        for (let i = 0; i < batches.length; i += this.maxConcurrent) {
-            const currentBatches = batches.slice(i, i + this.maxConcurrent);
-            await Promise.all(currentBatches.map(processBatchWithRetry));
-        }
+        history.mappings.push(mapping);
+        history.lastUpdated = new Date();
+        this.history.set(productId, history);
         
-        return { errors, previousStatuses };
-    },
-    
-    async processWithRetry(productId, pantryProductId) {
-        for (let attempt = 1; attempt <= this.retryAttempts; attempt++) {
-            try {
-                const requestData = {
-                    receiptProductId: productId,
-                    pantryProductId: pantryProductId
-                };
-                
-                const compressedData = await DataCompressor.compress(requestData);
-                
-                const response = await fetch(`/api/produkty/mapuj/${productId}`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRF-Token': getCsrfToken(),
-                        'X-Compression': compressedData.compressed ? compressedData.method : 'none'
-                    },
-                    body: compressedData.compressed ? 
-                        compressedData.data : 
-                        JSON.stringify(requestData)
-                });
-                
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                
-                const responseData = await response.json();
-                if (responseData.status !== 'success') {
-                    throw new Error(responseData.message || 'Błąd podczas mapowania produktu');
-                }
-                
-                return { success: true };
-            } catch (error) {
-                if (attempt === this.retryAttempts) {
-                    return { error: error.message };
-                }
-                await new Promise(resolve => setTimeout(resolve, this.retryDelay * attempt));
-            }
-        }
+        this.analyzePatterns();
     }
 };
 
-// Update bulkMapProducts function to use optimized bulk operations
-async function bulkMapProducts(pantryProductId) {
-    if (selectedProducts.size === 0) {
-        showError('Wybierz produkty do zmapowania', ErrorTypes.VALIDATION);
-        return;
-    }
-    
-    const progressBar = document.getElementById('bulkProgress');
-    const progressBarInner = progressBar.querySelector('.progress-bar');
-    progressBar.style.display = 'flex';
-    progressBarInner.style.width = '0%';
-    
-    const products = Array.from(selectedProducts);
-    
+// Aktualizacja istniejących funkcji
+const originalMapToExisting = mapToExisting;
+mapToExisting = async function(productId, categoryId) {
     try {
-        const { errors, previousStatuses } = await BulkOperations.processBatch(
-            products,
-            pantryProductId,
-            (completed, total) => {
-                const progress = (completed / total) * 100;
-                progressBarInner.style.width = `${progress}%`;
-            },
-            (error) => {
-                console.error('Error during bulk operation:', error);
-            }
-        );
+        showProgress();
         
-        if (errors.length === 0) {
-            // Store bulk operation in history
-            operationHistory.push({
-                type: OperationTypes.MAP,
-                isBulk: true,
-                products: products.map(id => ({
-                    receiptProductId: id,
-                    pantryProductId,
-                    previousStatus: previousStatuses.get(id)
-                }))
-            });
-            
-            showNotification('Wszystkie produkty zostały zmapowane!', 2000);
-            selectedProducts.forEach(id => updateRowStatus(id, 'zmapowany'));
-            toggleBulkMode();
-            updateUndoRedoButtons();
-        } else {
-            showError(
-                `Zmapowano ${products.length - errors.length} z ${products.length} produktów. ${errors.length} błędów.`,
-                ErrorTypes.VALIDATION
-            );
-            errors.forEach(({ productId }) => {
-                const row = document.querySelector(`button[data-bs-target='#mapModal${productId}']`).closest('tr');
-                row.classList.add('table-danger');
-            });
-        }
-    } catch (error) {
-        console.error('Error:', error);
-        showError(
-            'Wystąpił błąd podczas mapowania produktów',
-            ErrorTypes.SERVER
-        );
-    } finally {
-        setTimeout(() => {
-            progressBar.style.display = 'none';
-            progressBarInner.style.width = '0%';
-        }, 1000);
-    }
-}
-
-// Add bulk operation recovery
-async function recoverBulkOperation(operation) {
-    if (!operation.isBulk) return;
-    
-    const progressBar = document.getElementById('bulkProgress');
-    const progressBarInner = progressBar.querySelector('.progress-bar');
-    progressBar.style.display = 'flex';
-    progressBarInner.style.width = '0%';
-    
-    const products = operation.products.map(p => p.receiptProductId);
-    const pantryProductId = operation.products[0].pantryProductId;
-    
-    try {
-        const { errors } = await BulkOperations.processBatch(
-            products,
-            pantryProductId,
-            (completed, total) => {
-                const progress = (completed / total) * 100;
-                progressBarInner.style.width = `${progress}%`;
-            }
-        );
-        
-        if (errors.length === 0) {
-            showNotification('Operacja masowa została przywrócona!', 2000);
-            products.forEach(id => updateRowStatus(id, 'zmapowany'));
-        } else {
-            showError(
-                `Przywrócono ${products.length - errors.length} z ${products.length} produktów. ${errors.length} błędów.`,
-                ErrorTypes.VALIDATION
-            );
-        }
-    } catch (error) {
-        console.error('Error during recovery:', error);
-        showError('Wystąpił błąd podczas przywracania operacji masowej', ErrorTypes.SERVER);
-    } finally {
-        setTimeout(() => {
-            progressBar.style.display = 'none';
-            progressBarInner.style.width = '0%';
-        }, 1000);
-    }
-}
-
-function quickMap(productId) {
-    const modal = document.getElementById(`mapModal${productId}`);
-    const firstSuggestion = modal.querySelector('.list-group-item');
-    
-    if (firstSuggestion) {
-        const productName = firstSuggestion.textContent.split('(')[0].trim();
-        if (confirm(`Czy chcesz zmapować do produktu "${productName}"?`)) {
-            const pantryProductId = firstSuggestion.getAttribute('onclick').match(/mapToExisting\([^,]+,\s*(\d+)\)/)[1];
-            mapToExisting(productId, pantryProductId);
-        }
-    } else {
-        showNotification('Brak sugestii mapowania dla tego produktu', 3000);
-    }
-}
-
-// Add event listener for modal show
-document.addEventListener('DOMContentLoaded', function() {
-    document.querySelectorAll('[data-bs-toggle="modal"]').forEach(button => {
-        button.addEventListener('click', function() {
-            const productId = this.getAttribute('data-bs-target').replace('#mapModal', '');
-            const modal = document.getElementById(`mapModal${productId}`);
-            
-            // Add debounced search
-            const searchInput = modal.querySelector('input[type="text"]');
-            searchInput.addEventListener('input', debounce(() => filterProducts(productId), 300));
-            
-            // Load initial suggestions
-            setTimeout(() => filterProducts(productId), 100);
-            
-            // Load product history
-            setTimeout(() => loadProductHistory(productId), 100);
-        });
-    });
-});
-
-// Add touch swipe functionality
-let touchStartX = 0;
-let touchEndX = 0;
-let isSwiping = false;
-
-document.addEventListener('DOMContentLoaded', function() {
-    document.querySelectorAll('tbody tr').forEach(row => {
-        row.addEventListener('touchstart', e => {
-            touchStartX = e.changedTouches[0].screenX;
-            isSwiping = true;
-            row.classList.add('swiping');
-        }, false);
-        
-        row.addEventListener('touchmove', e => {
-            if (isSwiping) {
-                const currentX = e.changedTouches[0].screenX;
-                const swipeDistance = currentX - touchStartX;
-                row.style.transform = `translateX(${swipeDistance}px)`;
-            }
-        }, false);
-        
-        row.addEventListener('touchend', e => {
-            touchEndX = e.changedTouches[0].screenX;
-            isSwiping = false;
-            row.classList.remove('swiping');
-            row.style.transform = '';
-            handleSwipe(row);
-        }, false);
-        
-        row.addEventListener('touchcancel', () => {
-            isSwiping = false;
-            row.classList.remove('swiping');
-            row.style.transform = '';
-        }, false);
-    });
-});
-
-function handleSwipe(row) {
-    const swipeDistance = touchEndX - touchStartX;
-    const productId = row.querySelector('button[data-bs-target]').getAttribute('data-bs-target').replace('#mapModal', '');
-    
-    // Swipe right for quick map
-    if (swipeDistance > 100) {
-        quickMap(productId);
-    }
-    // Swipe left for ignore
-    else if (swipeDistance < -100) {
-        if (confirm('Czy na pewno chcesz zignorować ten produkt?')) {
-            ignoreProduct(productId);
-        }
-    }
-}
-
-// Lazy loading system for suggestions
-const SuggestionCache = {
-    cache: new Map(),
-    maxCacheSize: 100,
-    pendingRequests: new Map(),
-    
-    async getSuggestions(productId, searchTerm = '', category = '') {
-        const cacheKey = `${productId}-${searchTerm}-${category}`;
-        
-        // Return cached results if available
-        if (this.cache.has(cacheKey)) {
-            return this.cache.get(cacheKey);
-        }
-        
-        // Return pending request if exists
-        if (this.pendingRequests.has(cacheKey)) {
-            return this.pendingRequests.get(cacheKey);
-        }
-        
-        // Create new request
-        const request = this.fetchSuggestions(productId, searchTerm, category);
-        this.pendingRequests.set(cacheKey, request);
-        
-        try {
-            const results = await request;
-            this.cache.set(cacheKey, results);
-            
-            // Manage cache size
-            if (this.cache.size > this.maxCacheSize) {
-                const firstKey = this.cache.keys().next().value;
-                this.cache.delete(firstKey);
-            }
-            
-            return results;
-        } finally {
-            this.pendingRequests.delete(cacheKey);
-        }
-    },
-    
-    async fetchSuggestions(productId, searchTerm, category) {
-        const response = await fetch(`/api/produkty/sugestie/${productId}?search=${encodeURIComponent(searchTerm)}&category=${encodeURIComponent(category)}`);
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        const data = await response.json();
-        if (data.status !== 'success') {
-            throw new Error(data.message || 'Błąd podczas pobierania sugestii');
-        }
-        return data.suggestions;
-    },
-    
-    clearCache() {
-        this.cache.clear();
-        this.pendingRequests.clear();
-    }
-};
-
-// API request optimization system
-const ApiOptimizer = {
-    requestQueue: new Map(),
-    responseCache: new Map(),
-    cacheTimeout: 5 * 60 * 1000, // 5 minutes
-    batchTimeout: 100, // ms
-    pendingBatches: new Map(),
-    
-    // Batch similar requests
-    async batchRequest(endpoint, params, options = {}) {
-        const cacheKey = this.getCacheKey(endpoint, params);
-        
-        // Check cache first
-        const cachedData = this.getCachedResponse(cacheKey);
-        if (cachedData) {
-            return cachedData;
-        }
-        
-        // Add to existing batch or create new one
-        if (!this.pendingBatches.has(endpoint)) {
-            this.pendingBatches.set(endpoint, {
-                params: [],
-                promise: null,
-                timeout: null
-            });
-        }
-        
-        const batch = this.pendingBatches.get(endpoint);
-        batch.params.push(params);
-        
-        // Clear existing timeout
-        if (batch.timeout) {
-            clearTimeout(batch.timeout);
-        }
-        
-        // Create new promise if none exists
-        if (!batch.promise) {
-            batch.promise = new Promise((resolve) => {
-                batch.timeout = setTimeout(async () => {
-                    const results = await this.executeBatch(endpoint, batch.params, options);
-                    this.pendingBatches.delete(endpoint);
-                    resolve(results);
-                }, this.batchTimeout);
-            });
-        }
-        
-        return batch.promise.then(results => {
-            const index = batch.params.indexOf(params);
-            return results[index];
-        });
-    },
-    
-    // Execute batched request
-    async executeBatch(endpoint, paramsList, options = {}) {
-        // Compress request data
-        const compressedData = await DataCompressor.compress({
-            batch: paramsList
-        });
-        
-        const response = await fetch(endpoint, {
+        const response = await fetch('/api/map-product', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'X-CSRF-Token': getCsrfToken(),
-                'X-Compression': compressedData.compressed ? compressedData.method : 'none',
-                ...options.headers
+                'X-CSRFToken': getCookie('csrftoken')
             },
-            body: compressedData.compressed ? 
-                compressedData.data : 
-                JSON.stringify({ batch: paramsList })
+            body: JSON.stringify({
+                product_id: productId,
+                category_id: categoryId
+            })
         });
         
         if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+            throw new Error('Błąd podczas mapowania produktu');
         }
         
-        const contentType = response.headers.get('Content-Type');
-        let data;
+        const data = await response.json();
         
-        if (contentType && contentType.includes('application/json')) {
-            const responseData = await response.json();
-            if (responseData.status !== 'success') {
-                throw new Error(responseData.message || 'Błąd podczas wykonywania zapytania');
-            }
-            
-            // Decompress response data if needed
-            if (responseData.compressed) {
-                data = await DataCompressor.decompress(responseData);
-            } else {
-                data = responseData;
-            }
-        } else {
-            throw new Error('Invalid response format');
-        }
-        
-        // Cache results
-        data.results.forEach((result, index) => {
-            const cacheKey = this.getCacheKey(endpoint, paramsList[index]);
-            this.cacheResponse(cacheKey, result);
+        SuggestionSystem.updateHistory(productId, {
+            product_id: productId,
+            category: data.category_name,
+            date: new Date()
         });
         
-        return data.results;
-    },
+        updateProductStatus(productId, 'mapped');
+        showNotification('Produkt został zmapowany pomyślnie', 'success');
+        
+        await loadProductHistory(productId);
+        
+    } catch (error) {
+        console.error('Błąd podczas mapowania produktu:', error);
+        showNotification('Wystąpił błąd podczas mapowania produktu', 'error');
+    } finally {
+        hideProgress();
+    }
+};
+
+const originalFilterProducts = filterProducts;
+filterProducts = async function() {
+    const searchInput = document.getElementById('searchInput');
+    const searchTerm = searchInput.value.toLowerCase();
+    const productList = document.getElementById('productList');
+    const products = Array.from(productList.getElementsByClassName('product-item'));
     
-    // Cache management
-    getCacheKey(endpoint, params) {
-        return `${endpoint}-${JSON.stringify(params)}`;
-    },
-    
-    getCachedResponse(cacheKey) {
-        const cached = this.responseCache.get(cacheKey);
-        if (cached && Date.now() - cached.timestamp < this.cacheTimeout) {
-            return cached.data;
+    products.forEach(async product => {
+        const productName = product.querySelector('.product-name').textContent.toLowerCase();
+        const productId = product.dataset.productId;
+        
+        if (productName.includes(searchTerm)) {
+            product.style.display = '';
+            
+            if (searchTerm.length >= 3) {
+                const suggestions = await SuggestionSystem.getSuggestions(productName);
+                if (suggestions.length > 0) {
+                    const suggestionBadge = document.createElement('div');
+                    suggestionBadge.className = 'suggestion-badge';
+                    suggestionBadge.innerHTML = `
+                        <i class="fas fa-lightbulb"></i>
+                        <span>Sugerowane: ${suggestions.map(s => 
+                            `${s.category} (${Math.round(s.confidence * 100)}%)`
+                        ).join(', ')}</span>
+                    `;
+                    
+                    const existingBadge = product.querySelector('.suggestion-badge');
+                    if (existingBadge) {
+                        existingBadge.remove();
+                    }
+                    
+                    product.appendChild(suggestionBadge);
+                }
+            }
+        } else {
+            product.style.display = 'none';
         }
-        this.responseCache.delete(cacheKey);
+    });
+};
+
+// Inicjalizacja systemu sugestii
+document.addEventListener('DOMContentLoaded', () => {
+    SuggestionSystem.init();
+});
+
+// System automatycznego mapowania
+const AutoMappingSystem = {
+    confidenceThreshold: 0.85,
+    batchSize: 10,
+    processingQueue: [],
+    isProcessing: false,
+    
+    init() {
+        this.loadMappingRules();
+        this.setupAutoMappingButton();
+    },
+    
+    async loadMappingRules() {
+        try {
+            const response = await fetch('/api/mapping-rules');
+            const rules = await response.json();
+            this.rules = rules;
+        } catch (error) {
+            console.error('Błąd podczas ładowania reguł mapowania:', error);
+            this.rules = [];
+        }
+    },
+    
+    setupAutoMappingButton() {
+        const buttonContainer = document.querySelector('.mb-3.d-flex');
+        const autoMapButton = document.createElement('button');
+        autoMapButton.className = 'btn btn-outline-success flex-grow-1 flex-md-grow-0';
+        autoMapButton.innerHTML = `
+            <i class="fas fa-magic"></i>
+            <span class="d-none d-md-inline">Automatyczne mapowanie</span>
+            <span class="d-md-none">Auto</span>
+        `;
+        autoMapButton.onclick = () => this.startAutoMapping();
+        buttonContainer.appendChild(autoMapButton);
+        
+        // Dodanie skrótu klawiszowego
+        document.addEventListener('keydown', (e) => {
+            if (e.altKey && e.key === 'a') {
+                e.preventDefault();
+                this.startAutoMapping();
+            }
+        });
+    },
+    
+    async startAutoMapping() {
+        if (this.isProcessing) {
+            showNotification('Automatyczne mapowanie jest już w toku', 'warning');
+            return;
+        }
+        
+        const unmappedProducts = Array.from(document.querySelectorAll('.product-item'))
+            .filter(item => item.querySelector('.badge.bg-warning'))
+            .map(item => ({
+                id: item.dataset.productId,
+                name: item.querySelector('.product-name').textContent,
+                price: parseFloat(item.querySelector('.product-price').textContent)
+            }));
+            
+        if (unmappedProducts.length === 0) {
+            showNotification('Brak produktów do automatycznego mapowania', 'info');
+            return;
+        }
+        
+        this.processingQueue = unmappedProducts;
+        this.isProcessing = true;
+        
+        showProgress();
+        showNotification(`Rozpoczynam automatyczne mapowanie ${unmappedProducts.length} produktów`, 'info');
+        
+        await this.processQueue();
+    },
+    
+    async processQueue() {
+        while (this.processingQueue.length > 0) {
+            const batch = this.processingQueue.splice(0, this.batchSize);
+            await this.processBatch(batch);
+            
+            // Aktualizacja paska postępu
+            const progress = ((unmappedProducts.length - this.processingQueue.length) / unmappedProducts.length) * 100;
+            updateProgressBar(progress);
+        }
+        
+        this.isProcessing = false;
+        hideProgress();
+        showNotification('Automatyczne mapowanie zakończone', 'success');
+    },
+    
+    async processBatch(batch) {
+        const promises = batch.map(product => this.mapProduct(product));
+        await Promise.all(promises);
+    },
+    
+    async mapProduct(product) {
+        try {
+            const suggestions = await SuggestionSystem.getSuggestions(product.name);
+            const bestMatch = suggestions[0];
+            
+            if (bestMatch && bestMatch.confidence >= this.confidenceThreshold) {
+                // Sprawdzenie reguł mapowania
+                const ruleMatch = this.checkMappingRules(product, bestMatch.category);
+                
+                if (ruleMatch) {
+                    await mapToExisting(product.id, ruleMatch.categoryId);
+                    
+                    // Dodanie operacji do historii
+                    operationHistory.push({
+                        type: OperationTypes.AUTO_MAP,
+                        productId: product.id,
+                        categoryId: ruleMatch.categoryId,
+                        confidence: bestMatch.confidence,
+                        timestamp: new Date()
+                    });
+                    
+                    updateUndoRedoButtons();
+                }
+            }
+        } catch (error) {
+            console.error(`Błąd podczas automatycznego mapowania produktu ${product.id}:`, error);
+            logError(error, ErrorTypes.AUTO_MAP, { productId: product.id });
+        }
+    },
+    
+    checkMappingRules(product, suggestedCategory) {
+        for (const rule of this.rules) {
+            if (this.matchesRule(product, rule)) {
+                return {
+                    categoryId: rule.categoryId,
+                    confidence: rule.confidence
+                };
+            }
+        }
         return null;
     },
     
-    cacheResponse(cacheKey, data) {
-        this.responseCache.set(cacheKey, {
-            data,
-            timestamp: Date.now()
-        });
+    matchesRule(product, rule) {
+        // Sprawdzenie nazwy produktu
+        if (rule.namePattern && !new RegExp(rule.namePattern, 'i').test(product.name)) {
+            return false;
+        }
         
-        // Cleanup old cache entries
-        if (this.responseCache.size > 100) {
-            const oldestKey = this.responseCache.keys().next().value;
-            this.responseCache.delete(oldestKey);
-        }
-    },
-    
-    // Clear cache for specific endpoint or all
-    clearCache(endpoint = null) {
-        if (endpoint) {
-            for (const key of this.responseCache.keys()) {
-                if (key.startsWith(endpoint)) {
-                    this.responseCache.delete(key);
-                }
+        // Sprawdzenie ceny
+        if (rule.priceRange) {
+            const [min, max] = rule.priceRange;
+            if (product.price < min || product.price > max) {
+                return false;
             }
-        } else {
-            this.responseCache.clear();
         }
+        
+        // Sprawdzenie kategorii
+        if (rule.category && rule.category !== suggestedCategory) {
+            return false;
+        }
+        
+        return true;
     }
 };
 
-// Update filter functions to use lazy loading
-async function filterProducts(productId) {
-    const searchInput = document.getElementById(`searchProduct${productId}`);
-    const searchText = searchInput.value.toLowerCase();
-    const categoryFilter = document.getElementById(`categoryFilter${productId}`);
-    const selectedCategory = categoryFilter.value;
-    
-    const suggestionsContainer = document.querySelector(`#mapModal${productId} .list-group`);
-    suggestionsContainer.innerHTML = '<div class="text-center p-3"><div class="spinner-border text-primary" role="status"></div></div>';
-    
+// Aktualizacja OperationTypes
+OperationTypes.AUTO_MAP = 'auto_map';
+
+// Dodanie obsługi cofania/ponawiania dla automatycznego mapowania
+async function undoAutoMap(operation) {
     try {
-        const suggestions = await ApiOptimizer.batchRequest(
-            '/api/produkty/sugestie',
-            { productId, search: searchText, category: selectedCategory }
-        );
+        await fetch('/api/unmap-product', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({
+                product_id: operation.productId
+            })
+        });
         
-        if (suggestions.length === 0) {
-            suggestionsContainer.innerHTML = '<div class="text-center p-3 text-muted">Brak sugestii</div>';
-            return;
-        }
-        
-        suggestionsContainer.innerHTML = suggestions.map(suggestion => `
-            <button type="button" 
-                    class="list-group-item list-group-item-action"
-                    onclick="mapToExisting('${productId}', '${suggestion.id}')">
-                ${suggestion.nazwa} (${suggestion.kategoria})
-                <span class="badge bg-info float-end">
-                    ${suggestion.podobienstwo}%
-                </span>
-            </button>
-        `).join('');
+        updateProductStatus(operation.productId, 'oczekuje');
+        showNotification('Automatyczne mapowanie cofnięte', 'success');
     } catch (error) {
-        console.error('Error loading suggestions:', error);
-        suggestionsContainer.innerHTML = '<div class="text-center p-3 text-danger">Błąd podczas ładowania sugestii</div>';
-        showError(
-            error.message || 'Wystąpił błąd podczas ładowania sugestii',
-            error.name === 'TypeError' ? ErrorTypes.NETWORK : ErrorTypes.SERVER
-        );
+        console.error('Error during undo auto map:', error);
+        throw error;
     }
 }
 
-async function filterByCategory(productId) {
-    await filterProducts(productId);
-}
-
-// Add debounce to search input
-function debounce(func, wait) {
-    let timeout;
-    return function executedFunction(...args) {
-        const later = () => {
-            clearTimeout(timeout);
-            func(...args);
-        };
-        clearTimeout(timeout);
-        timeout = setTimeout(later, wait);
-    };
-}
-
-// Clear cache when leaving the page
-window.addEventListener('beforeunload', () => {
-    SuggestionCache.clearCache();
-    HistoryCache.clearCache();
-    ApiOptimizer.clearCache();
-    DataCompressor.methods = {}; // Clear compression methods
-});
-
-// Data compression system
-const DataCompressor = {
-    // Compression methods
-    methods: {
-        gzip: {
-            compress: async (data) => {
-                const blob = new Blob([JSON.stringify(data)]);
-                const compressed = await blob.arrayBuffer();
-                return compressed;
-            },
-            decompress: async (data) => {
-                const blob = new Blob([data]);
-                const text = await blob.text();
-                return JSON.parse(text);
-            }
-        },
-        deflate: {
-            compress: async (data) => {
-                const text = JSON.stringify(data);
-                const encoder = new TextEncoder();
-                const uint8Array = encoder.encode(text);
-                return uint8Array;
-            },
-            decompress: async (data) => {
-                const decoder = new TextDecoder();
-                const text = decoder.decode(data);
-                return JSON.parse(text);
-            }
-        }
-    },
-    
-    // Default compression method
-    defaultMethod: 'gzip',
-    
-    // Compression level (0-9)
-    compressionLevel: 6,
-    
-    // Minimum size to compress (bytes)
-    minSizeToCompress: 1024,
-    
-    // Compress data
-    async compress(data, method = this.defaultMethod) {
-        try {
-            const jsonString = JSON.stringify(data);
-            if (jsonString.length < this.minSizeToCompress) {
-                return {
-                    compressed: false,
-                    data: data
-                };
-            }
-            
-            const compressed = await this.methods[method].compress(data);
-            return {
-                compressed: true,
-                method: method,
-                data: compressed
-            };
-        } catch (error) {
-            console.error('Compression error:', error);
-            return {
-                compressed: false,
-                data: data
-            };
-        }
-    },
-    
-    // Decompress data
-    async decompress(data, method = this.defaultMethod) {
-        try {
-            if (!data.compressed) {
-                return data.data;
-            }
-            
-            return await this.methods[data.method].decompress(data.data);
-        } catch (error) {
-            console.error('Decompression error:', error);
-            throw new Error('Failed to decompress data');
-        }
-    }
-};
-
-// Batch category mapping system
-const BatchCategoryMapping = {
-    selectedProducts: new Set(),
-    currentCategory: '',
-    
-    init() {
-        this.selectedProducts.clear();
-        this.currentCategory = '';
-        document.getElementById('batchCategorySelect').value = '';
-        document.getElementById('batchCategorySearch').value = '';
-        document.getElementById('selectAllBatch').checked = false;
-        this.updateProductsList();
-    },
-    
-    async updateProductsList() {
-        const searchTerm = document.getElementById('batchCategorySearch').value.toLowerCase();
-        const productsList = document.getElementById('batchProductsList');
-        productsList.innerHTML = '<div class="text-center p-3"><div class="spinner-border text-primary" role="status"></div></div>';
-        
-        try {
-            const products = await ApiOptimizer.batchRequest(
-                '/api/produkty/lista',
-                { search: searchTerm }
-            );
-            
-            if (products.length === 0) {
-                productsList.innerHTML = '<div class="text-center p-3 text-muted">Brak produktów</div>';
-                return;
-            }
-            
-            productsList.innerHTML = products.map(product => `
-                <label class="list-group-item">
-                    <div class="d-flex align-items-center">
-                        <input class="form-check-input me-2" 
-                               type="checkbox" 
-                               value="${product.id}"
-                               ${this.selectedProducts.has(product.id) ? 'checked' : ''}
-                               onchange="BatchCategoryMapping.toggleProduct('${product.id}')">
-                        <div>
-                            <div>${product.nazwa}</div>
-                            <small class="text-muted">${product.kategoria || 'Brak kategorii'}</small>
-                        </div>
-                    </div>
-                </label>
-            `).join('');
-        } catch (error) {
-            console.error('Error loading products:', error);
-            productsList.innerHTML = '<div class="text-center p-3 text-danger">Błąd podczas ładowania produktów</div>';
-            showError(
-                error.message || 'Wystąpił błąd podczas ładowania produktów',
-                error.name === 'TypeError' ? ErrorTypes.NETWORK : ErrorTypes.SERVER
-            );
-        }
-    },
-    
-    toggleProduct(productId) {
-        if (this.selectedProducts.has(productId)) {
-            this.selectedProducts.delete(productId);
-        } else {
-            this.selectedProducts.add(productId);
-        }
-        document.getElementById('selectAllBatch').checked = 
-            this.selectedProducts.size === document.querySelectorAll('#batchProductsList input[type="checkbox"]').length;
-    },
-    
-    toggleSelectAll() {
-        const checkboxes = document.querySelectorAll('#batchProductsList input[type="checkbox"]');
-        const selectAll = document.getElementById('selectAllBatch').checked;
-        
-        checkboxes.forEach(checkbox => {
-            checkbox.checked = selectAll;
-            if (selectAll) {
-                this.selectedProducts.add(checkbox.value);
-            } else {
-                this.selectedProducts.delete(checkbox.value);
-            }
-        });
-    },
-    
-    async applyCategory() {
-        if (this.selectedProducts.size === 0) {
-            showError('Wybierz produkty do zmapowania', ErrorTypes.VALIDATION);
-            return;
-        }
-        
-        if (!this.currentCategory) {
-            showError('Wybierz kategorię', ErrorTypes.VALIDATION);
-            return;
-        }
-        
-        const progressBar = document.getElementById('bulkProgress');
-        const progressBarInner = progressBar.querySelector('.progress-bar');
-        progressBar.style.display = 'flex';
-        progressBarInner.style.width = '0%';
-        
-        const products = Array.from(this.selectedProducts);
-        let completed = 0;
-        let errors = [];
-        
-        try {
-            const { errors: batchErrors } = await BulkOperations.processBatch(
-                products,
-                null,
-                (completed, total) => {
-                    const progress = (completed / total) * 100;
-                    progressBarInner.style.width = `${progress}%`;
-                }
-            );
-            
-            errors = batchErrors;
-            
-            if (errors.length === 0) {
-                // Store batch operation in history
-                operationHistory.push({
-                    type: OperationTypes.BATCH_CATEGORY,
-                    products: products.map(id => ({
-                        receiptProductId: id,
-                        category: this.currentCategory,
-                        previousCategory: getCurrentCategory(id)
-                    }))
-                });
-                
-                showNotification('Kategoria została zaktualizowana dla wszystkich produktów!', 2000);
-                products.forEach(id => updateProductCategory(id, this.currentCategory));
-                updateUndoRedoButtons();
-            } else {
-                showError(
-                    `Zaktualizowano ${products.length - errors.length} z ${products.length} produktów. ${errors.length} błędów.`,
-                    ErrorTypes.VALIDATION
-                );
-            }
-        } catch (error) {
-            console.error('Error:', error);
-            showError(
-                'Wystąpił błąd podczas aktualizacji kategorii',
-                ErrorTypes.SERVER
-            );
-        } finally {
-            setTimeout(() => {
-                progressBar.style.display = 'none';
-                progressBarInner.style.width = '0%';
-            }, 1000);
-        }
-    }
-};
-
-function toggleBatchCategoryMode() {
-    const modal = new bootstrap.Modal(document.getElementById('batchCategoryModal'));
-    BatchCategoryMapping.init();
-    modal.show();
-}
-
-function filterBatchProducts() {
-    BatchCategoryMapping.updateProductsList();
-}
-
-function toggleSelectAllBatch() {
-    BatchCategoryMapping.toggleSelectAll();
-}
-
-function applyBatchCategory() {
-    BatchCategoryMapping.currentCategory = document.getElementById('batchCategorySelect').value;
-    BatchCategoryMapping.applyCategory();
-}
-
-function getCurrentCategory(productId) {
-    const row = document.querySelector(`button[data-bs-target='#mapModal${productId}']`).closest('tr');
-    const categoryCell = row.querySelector('td:nth-child(2)');
-    return categoryCell ? categoryCell.textContent : '';
-}
-
-function updateProductCategory(productId, category) {
-    const row = document.querySelector(`button[data-bs-target='#mapModal${productId}']`).closest('tr');
-    const categoryCell = row.querySelector('td:nth-child(2)');
-    if (categoryCell) {
-        categoryCell.textContent = category;
-    }
-}
-
-// Add undo/redo support for batch category operations
-async function undoBatchCategory(operation) {
-    const progressBar = document.getElementById('bulkProgress');
-    const progressBarInner = progressBar.querySelector('.progress-bar');
-    progressBar.style.display = 'flex';
-    progressBarInner.style.width = '0%';
-    
-    const products = operation.products;
-    let completed = 0;
-    
+async function redoAutoMap(operation) {
     try {
-        for (const product of products) {
-            await fetch(`/api/produkty/kategoria/${product.receiptProductId}`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-Token': getCsrfToken()
-                },
-                body: JSON.stringify({
-                    category: product.previousCategory
-                })
-            });
-            
-            completed++;
-            const progress = (completed / products.length) * 100;
-            progressBarInner.style.width = `${progress}%`;
-            
-            updateProductCategory(product.receiptProductId, product.previousCategory);
+        await mapToExisting(operation.productId, operation.categoryId);
+        showNotification('Automatyczne mapowanie ponowione', 'success');
+    } catch (error) {
+        console.error('Error during redo auto map:', error);
+        throw error;
+    }
+}
+
+// Aktualizacja handleUndo i handleRedo
+const originalHandleUndo = handleUndo;
+handleUndo = async function() {
+    const operation = operationHistory.undo();
+    if (!operation) return;
+
+    try {
+        switch (operation.type) {
+            case OperationTypes.AUTO_MAP:
+                await undoAutoMap(operation);
+                break;
+            default:
+                await originalHandleUndo();
         }
-        
-        showNotification('Kategorie zostały przywrócone!', 2000);
+        showNotification('Operacja cofnięta', 'success');
+        updateUndoRedoButtons();
     } catch (error) {
         console.error('Error during undo:', error);
-        showError('Wystąpił błąd podczas cofania zmian kategorii', ErrorTypes.SERVER);
-    } finally {
-        setTimeout(() => {
-            progressBar.style.display = 'none';
-            progressBarInner.style.width = '0%';
-        }, 1000);
+        showError('Nie udało się cofnąć operacji', ErrorTypes.SERVER);
+        operationHistory.undoStack.push(operation);
+        updateUndoRedoButtons();
     }
-}
+};
 
-async function redoBatchCategory(operation) {
-    const progressBar = document.getElementById('bulkProgress');
-    const progressBarInner = progressBar.querySelector('.progress-bar');
-    progressBar.style.display = 'flex';
-    progressBarInner.style.width = '0%';
-    
-    const products = operation.products;
-    let completed = 0;
-    
+const originalHandleRedo = handleRedo;
+handleRedo = async function() {
+    const operation = operationHistory.redo();
+    if (!operation) return;
+
     try {
-        for (const product of products) {
-            await fetch(`/api/produkty/kategoria/${product.receiptProductId}`, {
+        switch (operation.type) {
+            case OperationTypes.AUTO_MAP:
+                await redoAutoMap(operation);
+                break;
+            default:
+                await originalHandleRedo();
+        }
+        showNotification('Operacja ponowiona', 'success');
+        updateUndoRedoButtons();
+    } catch (error) {
+        console.error('Error during redo:', error);
+        showError('Nie udało się ponowić operacji', ErrorTypes.SERVER);
+        operationHistory.redoStack.push(operation);
+        updateUndoRedoButtons();
+    }
+};
+
+// Inicjalizacja systemu automatycznego mapowania
+document.addEventListener('DOMContentLoaded', () => {
+    AutoMappingSystem.init();
+});
+
+// System importu/exportu mapowań
+const MappingImportExport = {
+    supportedFormats: ['json', 'csv', 'xlsx'],
+    maxBatchSize: 1000,
+    
+    init() {
+        this.setupImportExportButtons();
+        this.setupDragAndDrop();
+    },
+    
+    setupImportExportButtons() {
+        const buttonContainer = document.querySelector('.mb-3.d-flex');
+        
+        // Przycisk eksportu
+        const exportButton = document.createElement('button');
+        exportButton.className = 'btn btn-outline-primary flex-grow-1 flex-md-grow-0';
+        exportButton.innerHTML = `
+            <i class="fas fa-file-export"></i>
+            <span class="d-none d-md-inline">Eksportuj mapowania</span>
+            <span class="d-md-none">Eksport</span>
+        `;
+        exportButton.onclick = () => this.showExportModal();
+        buttonContainer.appendChild(exportButton);
+        
+        // Przycisk importu
+        const importButton = document.createElement('button');
+        importButton.className = 'btn btn-outline-primary flex-grow-1 flex-md-grow-0';
+        importButton.innerHTML = `
+            <i class="fas fa-file-import"></i>
+            <span class="d-none d-md-inline">Importuj mapowania</span>
+            <span class="d-md-none">Import</span>
+        `;
+        importButton.onclick = () => this.showImportModal();
+        buttonContainer.appendChild(importButton);
+        
+        // Dodanie skrótów klawiszowych
+        document.addEventListener('keydown', (e) => {
+            if (e.altKey) {
+                if (e.key === 'e') {
+                    e.preventDefault();
+                    this.showExportModal();
+                } else if (e.key === 'i') {
+                    e.preventDefault();
+                    this.showImportModal();
+                }
+            }
+        });
+    },
+    
+    setupDragAndDrop() {
+        const dropZone = document.createElement('div');
+        dropZone.id = 'importDropZone';
+        dropZone.className = 'drop-zone';
+        dropZone.innerHTML = `
+            <div class="drop-zone-content">
+                <i class="fas fa-cloud-upload-alt"></i>
+                <p>Przeciągnij i upuść plik z mapowaniami</p>
+                <small>lub kliknij, aby wybrać plik</small>
+            </div>
+        `;
+        
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('drag-over');
+        });
+        
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.classList.remove('drag-over');
+        });
+        
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('drag-over');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                this.handleFileImport(files[0]);
+            }
+        });
+        
+        dropZone.addEventListener('click', () => {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.json,.csv,.xlsx';
+            input.onchange = (e) => {
+                if (e.target.files.length > 0) {
+                    this.handleFileImport(e.target.files[0]);
+                }
+            };
+            input.click();
+        });
+    },
+    
+    showExportModal() {
+        const modal = new bootstrap.Modal(document.getElementById('exportModal'));
+        modal.show();
+    },
+    
+    showImportModal() {
+        const modal = new bootstrap.Modal(document.getElementById('importModal'));
+        modal.show();
+    },
+    
+    async handleFileImport(file) {
+        try {
+            showProgress();
+            
+            const format = this.getFileFormat(file.name);
+            if (!this.supportedFormats.includes(format)) {
+                throw new Error('Nieobsługiwany format pliku');
+            }
+            
+            const data = await this.readFile(file);
+            const mappings = this.parseMappings(data, format);
+            
+            await this.validateMappings(mappings);
+            await this.importMappings(mappings);
+            
+            showNotification('Import mapowań zakończony pomyślnie', 'success');
+        } catch (error) {
+            console.error('Błąd podczas importu:', error);
+            showError('Wystąpił błąd podczas importu mapowań', ErrorTypes.IMPORT);
+        } finally {
+            hideProgress();
+        }
+    },
+    
+    getFileFormat(filename) {
+        return filename.split('.').pop().toLowerCase();
+    },
+    
+    async readFile(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            
+            reader.onload = (e) => resolve(e.target.result);
+            reader.onerror = (e) => reject(new Error('Błąd odczytu pliku'));
+            
+            if (file.name.endsWith('.xlsx')) {
+                reader.readAsArrayBuffer(file);
+            } else {
+                reader.readAsText(file);
+            }
+        });
+    },
+    
+    parseMappings(data, format) {
+        switch (format) {
+            case 'json':
+                return JSON.parse(data);
+            case 'csv':
+                return this.parseCSV(data);
+            case 'xlsx':
+                return this.parseXLSX(data);
+            default:
+                throw new Error('Nieobsługiwany format pliku');
+        }
+    },
+    
+    parseCSV(data) {
+        const lines = data.split('\n');
+        const headers = lines[0].split(',');
+        return lines.slice(1).map(line => {
+            const values = line.split(',');
+            return headers.reduce((obj, header, index) => {
+                obj[header.trim()] = values[index]?.trim();
+                return obj;
+            }, {});
+        });
+    },
+    
+    async parseXLSX(data) {
+        const XLSX = await import('xlsx');
+        const workbook = XLSX.read(data, { type: 'array' });
+        const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+        return XLSX.utils.sheet_to_json(firstSheet);
+    },
+    
+    async validateMappings(mappings) {
+        const errors = [];
+        
+        for (const mapping of mappings) {
+            if (!mapping.product_id || !mapping.category_id) {
+                errors.push(`Brak wymaganych pól w mapowaniu: ${JSON.stringify(mapping)}`);
+            }
+        }
+        
+        if (errors.length > 0) {
+            throw new Error(`Błędy walidacji:\n${errors.join('\n')}`);
+        }
+    },
+    
+    async importMappings(mappings) {
+        const batches = this.createBatches(mappings, this.maxBatchSize);
+        
+        for (const batch of batches) {
+            await this.processImportBatch(batch);
+        }
+    },
+    
+    createBatches(items, batchSize) {
+        const batches = [];
+        for (let i = 0; i < items.length; i += batchSize) {
+            batches.push(items.slice(i, i + batchSize));
+        }
+        return batches;
+    },
+    
+    async processImportBatch(batch) {
+        try {
+            const response = await fetch('/api/import-mappings', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-CSRF-Token': getCsrfToken()
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: JSON.stringify({ mappings: batch })
+            });
+            
+            if (!response.ok) {
+                throw new Error('Błąd podczas importu mapowań');
+            }
+            
+            const result = await response.json();
+            if (result.errors && result.errors.length > 0) {
+                throw new Error(`Błędy podczas importu:\n${result.errors.join('\n')}`);
+            }
+        } catch (error) {
+            console.error('Błąd podczas przetwarzania partii:', error);
+            throw error;
+        }
+    },
+    
+    async exportMappings(format) {
+        try {
+            showProgress();
+            
+            const response = await fetch('/api/export-mappings', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: JSON.stringify({ format })
+            });
+            
+            if (!response.ok) {
+                throw new Error('Błąd podczas eksportu mapowań');
+            }
+            
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `mappings_${new Date().toISOString().split('T')[0]}.${format}`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+            
+            showNotification('Eksport mapowań zakończony pomyślnie', 'success');
+        } catch (error) {
+            console.error('Błąd podczas eksportu:', error);
+            showError('Wystąpił błąd podczas eksportu mapowań', ErrorTypes.EXPORT);
+        } finally {
+            hideProgress();
+        }
+    }
+};
+
+// System wzorców użycia
+const UsagePatterns = {
+    patterns: {
+        timeBased: new Map(),
+        categoryBased: new Map(),
+        sequenceBased: new Map(),
+        userBased: new Map()
+    },
+    
+    init() {
+        this.setupPatternsButton();
+        this.loadPatterns();
+        this.setupEventListeners();
+    },
+    
+    setupPatternsButton() {
+        const buttonContainer = document.querySelector('.mb-3.d-flex');
+        const patternsButton = document.createElement('button');
+        patternsButton.className = 'btn btn-outline-info flex-grow-1 flex-md-grow-0';
+        patternsButton.innerHTML = `
+            <i class="fas fa-project-diagram"></i>
+            <span class="d-none d-md-inline">Wzorce użycia</span>
+            <span class="d-md-none">Wzorce</span>
+        `;
+        patternsButton.onclick = () => this.showPatternsModal();
+        buttonContainer.appendChild(patternsButton);
+        
+        // Dodanie skrótu klawiszowego
+        document.addEventListener('keydown', (e) => {
+            if (e.altKey && e.key === 'p') {
+                e.preventDefault();
+                this.showPatternsModal();
+            }
+        });
+    },
+    
+    async loadPatterns() {
+        try {
+            const response = await fetch('/api/usage-patterns');
+            if (!response.ok) {
+                throw new Error('Błąd podczas ładowania wzorców');
+            }
+            
+            const data = await response.json();
+            this.patterns = { ...this.patterns, ...data };
+            this.updatePatternsDisplay();
+        } catch (error) {
+            console.error('Błąd podczas ładowania wzorców:', error);
+            showError('Nie udało się załadować wzorców', ErrorTypes.PATTERNS);
+        }
+    },
+    
+    setupEventListeners() {
+        // Nasłuchiwanie operacji mapowania
+        document.addEventListener('mappingComplete', (e) => {
+            this.updatePatterns(e.detail);
+        });
+        
+        // Nasłuchiwanie operacji masowych
+        document.addEventListener('bulkOperationComplete', (e) => {
+            this.updateBulkPatterns(e.detail);
+        });
+        
+        // Nasłuchiwanie zmian kategorii
+        document.addEventListener('categoryChange', (e) => {
+            this.updateCategoryPatterns(e.detail);
+        });
+    },
+    
+    updatePatterns(detail) {
+        const timestamp = new Date();
+        const hour = timestamp.getHours();
+        const dayOfWeek = timestamp.getDay();
+        
+        // Aktualizacja wzorców czasowych
+        this.updateTimePatterns(hour, dayOfWeek, detail);
+        
+        // Aktualizacja wzorców kategorii
+        this.updateCategoryPatterns(detail);
+        
+        // Aktualizacja wzorców sekwencji
+        this.updateSequencePatterns(detail);
+        
+        // Aktualizacja wzorców użytkownika
+        this.updateUserPatterns(detail);
+        
+        this.savePatterns();
+        this.updatePatternsDisplay();
+    },
+    
+    updateTimePatterns(hour, dayOfWeek, detail) {
+        const timeKey = `${dayOfWeek}-${hour}`;
+        if (!this.patterns.timeBased.has(timeKey)) {
+            this.patterns.timeBased.set(timeKey, {
+                count: 0,
+                categories: new Map(),
+                averageTime: 0,
+                totalTime: 0
+            });
+        }
+        
+        const timePattern = this.patterns.timeBased.get(timeKey);
+        timePattern.count++;
+        timePattern.totalTime += detail.duration;
+        timePattern.averageTime = timePattern.totalTime / timePattern.count;
+        
+        // Aktualizacja kategorii dla danego czasu
+        const category = detail.category;
+        if (!timePattern.categories.has(category)) {
+            timePattern.categories.set(category, 0);
+        }
+        timePattern.categories.set(category, timePattern.categories.get(category) + 1);
+    },
+    
+    updateCategoryPatterns(detail) {
+        const category = detail.category;
+        if (!this.patterns.categoryBased.has(category)) {
+            this.patterns.categoryBased.set(category, {
+                count: 0,
+                relatedCategories: new Map(),
+                averageTime: 0,
+                totalTime: 0
+            });
+        }
+        
+        const categoryPattern = this.patterns.categoryBased.get(category);
+        categoryPattern.count++;
+        categoryPattern.totalTime += detail.duration;
+        categoryPattern.averageTime = categoryPattern.totalTime / categoryPattern.count;
+        
+        // Aktualizacja powiązanych kategorii
+        if (detail.previousCategory) {
+            const relatedCount = categoryPattern.relatedCategories.get(detail.previousCategory) || 0;
+            categoryPattern.relatedCategories.set(detail.previousCategory, relatedCount + 1);
+        }
+    },
+    
+    updateSequencePatterns(detail) {
+        const sequence = detail.sequence || [];
+        const sequenceKey = sequence.join('-');
+        
+        if (!this.patterns.sequenceBased.has(sequenceKey)) {
+            this.patterns.sequenceBased.set(sequenceKey, {
+                count: 0,
+                categories: new Map(),
+                averageTime: 0,
+                totalTime: 0
+            });
+        }
+        
+        const sequencePattern = this.patterns.sequenceBased.get(sequenceKey);
+        sequencePattern.count++;
+        sequencePattern.totalTime += detail.duration;
+        sequencePattern.averageTime = sequencePattern.totalTime / sequencePattern.count;
+        
+        // Aktualizacja kategorii dla sekwencji
+        const category = detail.category;
+        if (!sequencePattern.categories.has(category)) {
+            sequencePattern.categories.set(category, 0);
+        }
+        sequencePattern.categories.set(category, sequencePattern.categories.get(category) + 1);
+    },
+    
+    updateUserPatterns(detail) {
+        const userId = detail.userId;
+        if (!this.patterns.userBased.has(userId)) {
+            this.patterns.userBased.set(userId, {
+                count: 0,
+                categories: new Map(),
+                timePatterns: new Map(),
+                averageTime: 0,
+                totalTime: 0
+            });
+        }
+        
+        const userPattern = this.patterns.userBased.get(userId);
+        userPattern.count++;
+        userPattern.totalTime += detail.duration;
+        userPattern.averageTime = userPattern.totalTime / userPattern.count;
+        
+        // Aktualizacja kategorii dla użytkownika
+        const category = detail.category;
+        if (!userPattern.categories.has(category)) {
+            userPattern.categories.set(category, 0);
+        }
+        userPattern.categories.set(category, userPattern.categories.get(category) + 1);
+        
+        // Aktualizacja wzorców czasowych dla użytkownika
+        const timeKey = `${detail.dayOfWeek}-${detail.hour}`;
+        if (!userPattern.timePatterns.has(timeKey)) {
+            userPattern.timePatterns.set(timeKey, 0);
+        }
+        userPattern.timePatterns.set(timeKey, userPattern.timePatterns.get(timeKey) + 1);
+    },
+    
+    async savePatterns() {
+        try {
+            await fetch('/api/save-patterns', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: JSON.stringify(this.patterns)
+            });
+        } catch (error) {
+            console.error('Błąd podczas zapisywania wzorców:', error);
+        }
+    },
+    
+    updatePatternsDisplay() {
+        const patternsContainer = document.getElementById('patternsContent');
+        if (!patternsContainer) return;
+        
+        // Aktualizacja wykresu wzorców czasowych
+        this.updateTimePatternsChart();
+        
+        // Aktualizacja wykresu wzorców kategorii
+        this.updateCategoryPatternsChart();
+        
+        // Aktualizacja wykresu wzorców sekwencji
+        this.updateSequencePatternsChart();
+        
+        // Aktualizacja wykresu wzorców użytkownika
+        this.updateUserPatternsChart();
+    },
+    
+    updateTimePatternsChart() {
+        const ctx = document.getElementById('timePatternsChart').getContext('2d');
+        const timeData = Array.from(this.patterns.timeBased.entries())
+            .sort((a, b) => a[0].localeCompare(b[0]));
+        
+        if (this.timePatternsChart) {
+            this.timePatternsChart.destroy();
+        }
+        
+        this.timePatternsChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: timeData.map(([key]) => {
+                    const [day, hour] = key.split('-');
+                    return `${this.getDayName(day)} ${hour}:00`;
+                }),
+                datasets: [{
+                    label: 'Liczba mapowań',
+                    data: timeData.map(([, data]) => data.count),
+                    borderColor: 'rgba(75, 192, 192, 1)',
+                    tension: 0.1
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+    },
+    
+    updateCategoryPatternsChart() {
+        const ctx = document.getElementById('categoryPatternsChart').getContext('2d');
+        const categoryData = Array.from(this.patterns.categoryBased.entries())
+            .sort((a, b) => b[1].count - a[1].count);
+        
+        if (this.categoryPatternsChart) {
+            this.categoryPatternsChart.destroy();
+        }
+        
+        this.categoryPatternsChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: categoryData.map(([category]) => category),
+                datasets: [{
+                    label: 'Liczba mapowań',
+                    data: categoryData.map(([, data]) => data.count),
+                    backgroundColor: 'rgba(153, 102, 255, 0.5)',
+                    borderColor: 'rgba(153, 102, 255, 1)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+    },
+    
+    updateSequencePatternsChart() {
+        const ctx = document.getElementById('sequencePatternsChart').getContext('2d');
+        const sequenceData = Array.from(this.patterns.sequenceBased.entries())
+            .sort((a, b) => b[1].count - a[1].count)
+            .slice(0, 10); // Top 10 sekwencji
+        
+        if (this.sequencePatternsChart) {
+            this.sequencePatternsChart.destroy();
+        }
+        
+        this.sequencePatternsChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: sequenceData.map(([sequence]) => sequence),
+                datasets: [{
+                    label: 'Liczba wystąpień',
+                    data: sequenceData.map(([, data]) => data.count),
+                    backgroundColor: 'rgba(255, 159, 64, 0.5)',
+                    borderColor: 'rgba(255, 159, 64, 1)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+    },
+    
+    updateUserPatternsChart() {
+        const ctx = document.getElementById('userPatternsChart').getContext('2d');
+        const userData = Array.from(this.patterns.userBased.entries())
+            .sort((a, b) => b[1].count - a[1].count);
+        
+        if (this.userPatternsChart) {
+            this.userPatternsChart.destroy();
+        }
+        
+        this.userPatternsChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: userData.map(([userId]) => `Użytkownik ${userId}`),
+                datasets: [{
+                    label: 'Liczba mapowań',
+                    data: userData.map(([, data]) => data.count),
+                    backgroundColor: 'rgba(54, 162, 235, 0.5)',
+                    borderColor: 'rgba(54, 162, 235, 1)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+    },
+    
+    getDayName(day) {
+        const days = ['Niedziela', 'Poniedziałek', 'Wtorek', 'Środa', 'Czwartek', 'Piątek', 'Sobota'];
+        return days[parseInt(day)];
+    },
+    
+    showPatternsModal() {
+        const modal = new bootstrap.Modal(document.getElementById('patternsModal'));
+        modal.show();
+    }
+};
+
+// Inicjalizacja systemu wzorców
+document.addEventListener('DOMContentLoaded', () => {
+    UsagePatterns.init();
+});
+
+// System raportów i eksportu
+const ReportingSystem = {
+    reports: {
+        mapping: {
+            title: 'Raport mapowań',
+            description: 'Szczegółowy raport mapowań produktów',
+            fields: ['data', 'produkt', 'kategoria', 'status', 'użytkownik']
+        },
+        categories: {
+            title: 'Raport kategorii',
+            description: 'Statystyki mapowań według kategorii',
+            fields: ['kategoria', 'liczba_mapowań', 'średni_czas', 'popularność']
+        },
+        users: {
+            title: 'Raport użytkowników',
+            description: 'Statystyki mapowań według użytkowników',
+            fields: ['użytkownik', 'liczba_mapowań', 'średni_czas', 'ulubione_kategorie']
+        },
+        trends: {
+            title: 'Raport trendów',
+            description: 'Analiza trendów w mapowaniu',
+            fields: ['okres', 'liczba_mapowań', 'popularne_kategorie', 'wzorce']
+        }
+    },
+    
+    init() {
+        this.setupReportingButton();
+        this.loadReportTemplates();
+    },
+    
+    setupReportingButton() {
+        const buttonContainer = document.querySelector('.mb-3.d-flex');
+        const reportButton = document.createElement('button');
+        reportButton.className = 'btn btn-outline-primary flex-grow-1 flex-md-grow-0';
+        reportButton.innerHTML = `
+            <i class="fas fa-chart-bar"></i>
+            <span class="d-none d-md-inline">Raporty</span>
+            <span class="d-md-none">Raporty</span>
+        `;
+        reportButton.onclick = () => this.showReportingModal();
+        buttonContainer.appendChild(reportButton);
+        
+        // Dodanie skrótu klawiszowego
+        document.addEventListener('keydown', (e) => {
+            if (e.altKey && e.key === 'r') {
+                e.preventDefault();
+                this.showReportingModal();
+            }
+        });
+    },
+    
+    async loadReportTemplates() {
+        try {
+            const response = await fetch('/api/report-templates');
+            if (!response.ok) {
+                throw new Error('Błąd podczas ładowania szablonów raportów');
+            }
+            
+            const templates = await response.json();
+            this.reports = { ...this.reports, ...templates };
+        } catch (error) {
+            console.error('Błąd podczas ładowania szablonów raportów:', error);
+            showError('Nie udało się załadować szablonów raportów', ErrorTypes.REPORTS);
+        }
+    },
+    
+    showReportingModal() {
+        const modal = new bootstrap.Modal(document.getElementById('reportingModal'));
+        modal.show();
+    },
+    
+    async generateReport(reportType, options) {
+        try {
+            showProgress();
+            
+            const response = await fetch('/api/generate-report', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
                 },
                 body: JSON.stringify({
-                    category: product.category
+                    type: reportType,
+                    options: options
                 })
             });
             
-            completed++;
-            const progress = (completed / products.length) * 100;
-            progressBarInner.style.width = `${progress}%`;
+            if (!response.ok) {
+                throw new Error('Błąd podczas generowania raportu');
+            }
             
-            updateProductCategory(product.receiptProductId, product.category);
+            const data = await response.json();
+            return data;
+        } catch (error) {
+            console.error('Błąd podczas generowania raportu:', error);
+            showError('Nie udało się wygenerować raportu', ErrorTypes.REPORTS);
+            throw error;
+        } finally {
+            hideProgress();
+        }
+    },
+    
+    async exportReport(reportData, format) {
+        try {
+            showProgress();
+            
+            const response = await fetch('/api/export-report', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: JSON.stringify({
+                    data: reportData,
+                    format: format
+                })
+            });
+            
+            if (!response.ok) {
+                throw new Error('Błąd podczas eksportu raportu');
+            }
+            
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `report_${new Date().toISOString().split('T')[0]}.${format}`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+            
+            showNotification('Raport został wyeksportowany pomyślnie', 'success');
+        } catch (error) {
+            console.error('Błąd podczas eksportu raportu:', error);
+            showError('Nie udało się wyeksportować raportu', ErrorTypes.REPORTS);
+        } finally {
+            hideProgress();
+        }
+    },
+    
+    async previewReport(reportType, options) {
+        try {
+            const data = await this.generateReport(reportType, options);
+            this.displayReportPreview(data);
+        } catch (error) {
+            console.error('Błąd podczas podglądu raportu:', error);
+        }
+    },
+    
+    displayReportPreview(data) {
+        const previewContainer = document.getElementById('reportPreview');
+        if (!previewContainer) return;
+        
+        // Wyczyść poprzedni podgląd
+        previewContainer.innerHTML = '';
+        
+        // Dodaj tabelę z danymi
+        const table = document.createElement('table');
+        table.className = 'table table-striped';
+        
+        // Nagłówki
+        const thead = document.createElement('thead');
+        const headerRow = document.createElement('tr');
+        data.fields.forEach(field => {
+            const th = document.createElement('th');
+            th.textContent = field;
+            headerRow.appendChild(th);
+        });
+        thead.appendChild(headerRow);
+        table.appendChild(thead);
+        
+        // Dane
+        const tbody = document.createElement('tbody');
+        data.rows.forEach(row => {
+            const tr = document.createElement('tr');
+            data.fields.forEach(field => {
+                const td = document.createElement('td');
+                td.textContent = row[field];
+                tr.appendChild(td);
+            });
+            tbody.appendChild(tr);
+        });
+        table.appendChild(tbody);
+        
+        previewContainer.appendChild(table);
+        
+        // Dodaj wykresy jeśli są dostępne
+        if (data.charts) {
+            this.displayReportCharts(data.charts);
+        }
+    },
+    
+    displayReportCharts(charts) {
+        const chartsContainer = document.getElementById('reportCharts');
+        if (!chartsContainer) return;
+        
+        chartsContainer.innerHTML = '';
+        
+        charts.forEach(chartData => {
+            const canvas = document.createElement('canvas');
+            chartsContainer.appendChild(canvas);
+            
+            new Chart(canvas.getContext('2d'), {
+                type: chartData.type,
+                data: chartData.data,
+                options: chartData.options
+            });
+        });
+    }
+};
+
+// Inicjalizacja systemu raportów
+document.addEventListener('DOMContentLoaded', () => {
+    ReportingSystem.init();
+});
+
+// System wizualizacji danych
+const DataVisualization = {
+    charts: new Map(),
+    activeVisualizations: new Set(),
+    
+    init() {
+        this.setupVisualizationButton();
+        this.loadVisualizationTemplates();
+    },
+    
+    setupVisualizationButton() {
+        const buttonContainer = document.querySelector('.mb-3.d-flex');
+        const vizButton = document.createElement('button');
+        vizButton.className = 'btn btn-outline-info flex-grow-1 flex-md-grow-0';
+        vizButton.innerHTML = `
+            <i class="fas fa-chart-pie"></i>
+            <span class="d-none d-md-inline">Wizualizacje</span>
+            <span class="d-md-none">Wizualizacje</span>
+        `;
+        vizButton.onclick = () => this.showVisualizationModal();
+        buttonContainer.appendChild(vizButton);
+        
+        // Dodanie skrótu klawiszowego
+        document.addEventListener('keydown', (e) => {
+            if (e.altKey && e.key === 'v') {
+                e.preventDefault();
+                this.showVisualizationModal();
+            }
+        });
+    },
+    
+    async loadVisualizationTemplates() {
+        try {
+            const response = await fetch('/api/visualization-templates');
+            if (!response.ok) {
+                throw new Error('Błąd podczas ładowania szablonów wizualizacji');
+            }
+            
+            const templates = await response.json();
+            this.templates = templates;
+        } catch (error) {
+            console.error('Błąd podczas ładowania szablonów wizualizacji:', error);
+            showError('Nie udało się załadować szablonów wizualizacji', ErrorTypes.VISUALIZATION);
+        }
+    },
+    
+    showVisualizationModal() {
+        const modal = new bootstrap.Modal(document.getElementById('visualizationModal'));
+        modal.show();
+    },
+    
+    async loadData(visualizationType, options) {
+        try {
+            showProgress();
+            
+            const response = await fetch('/api/visualization-data', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: JSON.stringify({
+                    type: visualizationType,
+                    options: options
+                })
+            });
+            
+            if (!response.ok) {
+                throw new Error('Błąd podczas ładowania danych do wizualizacji');
+            }
+            
+            const data = await response.json();
+            return data;
+        } catch (error) {
+            console.error('Błąd podczas ładowania danych:', error);
+            showError('Nie udało się załadować danych do wizualizacji', ErrorTypes.VISUALIZATION);
+            throw error;
+        } finally {
+            hideProgress();
+        }
+    },
+    
+    createVisualization(type, data, container) {
+        const template = this.templates[type];
+        if (!template) {
+            throw new Error('Nieznany typ wizualizacji');
         }
         
-        showNotification('Kategorie zostały ponownie zastosowane!', 2000);
-    } catch (error) {
-        console.error('Error during redo:', error);
-        showError('Wystąpił błąd podczas ponownego zastosowania kategorii', ErrorTypes.SERVER);
-    } finally {
-        setTimeout(() => {
-            progressBar.style.display = 'none';
-            progressBarInner.style.width = '0%';
-        }, 1000);
+        // Usuń poprzednią wizualizację jeśli istnieje
+        if (this.charts.has(container.id)) {
+            this.charts.get(container.id).destroy();
+            this.charts.delete(container.id);
+        }
+        
+        // Utwórz nową wizualizację
+        const chart = new Chart(container.getContext('2d'), {
+            type: template.type,
+            data: this.prepareChartData(data, template),
+            options: this.prepareChartOptions(template)
+        });
+        
+        this.charts.set(container.id, chart);
+        this.activeVisualizations.add(container.id);
+        
+        return chart;
+    },
+    
+    prepareChartData(data, template) {
+        const chartData = {
+            labels: [],
+            datasets: []
+        };
+        
+        switch (template.type) {
+            case 'pie':
+            case 'doughnut':
+                chartData.labels = data.labels;
+                chartData.datasets = [{
+                    data: data.values,
+                    backgroundColor: this.generateColors(data.labels.length)
+                }];
+                break;
+                
+            case 'bar':
+            case 'line':
+                chartData.labels = data.labels;
+                data.datasets.forEach((dataset, index) => {
+                    chartData.datasets.push({
+                        label: dataset.label,
+                        data: dataset.values,
+                        backgroundColor: this.generateColors(1, index)[0],
+                        borderColor: this.generateColors(1, index)[0],
+                        fill: template.type === 'line' ? false : true
+                    });
+                });
+                break;
+                
+            case 'radar':
+                chartData.labels = data.labels;
+                chartData.datasets = data.datasets.map((dataset, index) => ({
+                    label: dataset.label,
+                    data: dataset.values,
+                    backgroundColor: this.generateColors(1, index, 0.2)[0],
+                    borderColor: this.generateColors(1, index)[0]
+                }));
+                break;
+        }
+        
+        return chartData;
+    },
+    
+    prepareChartOptions(template) {
+        const options = {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: template.legendPosition || 'top'
+                },
+                tooltip: {
+                    enabled: true,
+                    mode: 'index',
+                    intersect: false
+                }
+            },
+            interaction: {
+                mode: 'nearest',
+                axis: 'x',
+                intersect: false
+            }
+        };
+        
+        if (template.scales) {
+            options.scales = template.scales;
+        }
+        
+        return options;
+    },
+    
+    generateColors(count, offset = 0, alpha = 1) {
+        const colors = [];
+        const baseColors = [
+            'rgba(255, 99, 132, ',
+            'rgba(54, 162, 235, ',
+            'rgba(255, 206, 86, ',
+            'rgba(75, 192, 192, ',
+            'rgba(153, 102, 255, ',
+            'rgba(255, 159, 64, ',
+            'rgba(199, 199, 199, ',
+            'rgba(83, 102, 255, ',
+            'rgba(40, 159, 64, ',
+            'rgba(210, 199, 199, '
+        ];
+        
+        for (let i = 0; i < count; i++) {
+            const colorIndex = (i + offset) % baseColors.length;
+            colors.push(baseColors[colorIndex] + alpha + ')');
+        }
+        
+        return colors;
+    },
+    
+    updateVisualization(containerId, newData) {
+        const chart = this.charts.get(containerId);
+        if (!chart) return;
+        
+        const template = this.templates[chart.config.type];
+        const chartData = this.prepareChartData(newData, template);
+        
+        chart.data = chartData;
+        chart.update();
+    },
+    
+    destroyVisualization(containerId) {
+        const chart = this.charts.get(containerId);
+        if (chart) {
+            chart.destroy();
+            this.charts.delete(containerId);
+            this.activeVisualizations.delete(containerId);
+        }
+    },
+    
+    destroyAllVisualizations() {
+        this.charts.forEach(chart => chart.destroy());
+        this.charts.clear();
+        this.activeVisualizations.clear();
     }
-}
+};
+
+// Dodanie modalu wizualizacji do HTML
+document.body.insertAdjacentHTML('beforeend', `
+    <!-- Visualization Modal -->
+    <div class="modal fade" id="visualizationModal" tabindex="-1">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Wizualizacje danych</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row mb-4">
+                        <div class="col-md-3">
+                            <div class="mb-3">
+                                <label class="form-label">Typ wizualizacji:</label>
+                                <select class="form-select" id="visualizationType" onchange="DataVisualization.updateVisualizationOptions()">
+                                    <option value="category_distribution">Rozkład kategorii</option>
+                                    <option value="mapping_trends">Trendy mapowań</option>
+                                    <option value="user_activity">Aktywność użytkowników</option>
+                                    <option value="performance_metrics">Metryki wydajności</option>
+                                </select>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label class="form-label">Okres:</label>
+                                <select class="form-select" id="visualizationPeriod">
+                                    <option value="today">Dziś</option>
+                                    <option value="week">Ostatni tydzień</option>
+                                    <option value="month">Ostatni miesiąc</option>
+                                    <option value="year">Ostatni rok</option>
+                                    <option value="custom">Niestandardowy</option>
+                                </select>
+                            </div>
+                            
+                            <div id="visualizationCustomDateRange" class="mb-3" style="display: none;">
+                                <div class="row">
+                                    <div class="col-6">
+                                        <label class="form-label">Od:</label>
+                                        <input type="date" class="form-control" id="visualizationStartDate">
+                                    </div>
+                                    <div class="col-6">
+                                        <label class="form-label">Do:</label>
+                                        <input type="date" class="form-control" id="visualizationEndDate">
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label class="form-label">Aktualizacja:</label>
+                                <select class="form-select" id="visualizationUpdateInterval">
+                                    <option value="0">Brak</option>
+                                    <option value="30">Co 30 sekund</option>
+                                    <option value="60">Co minutę</option>
+                                    <option value="300">Co 5 minut</option>
+                                </select>
+                            </div>
+                            
+                            <div class="d-grid gap-2">
+                                <button type="button" class="btn btn-primary" onclick="DataVisualization.loadAndDisplayVisualization()">
+                                    <i class="fas fa-sync"></i> Odśwież
+                                </button>
+                                <button type="button" class="btn btn-success" onclick="DataVisualization.exportVisualization()">
+                                    <i class="fas fa-download"></i> Eksportuj
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-9">
+                            <div class="row">
+                                <div class="col-12 mb-4">
+                                    <div class="card">
+                                        <div class="card-body">
+                                            <h6 class="card-title">Główna wizualizacja</h6>
+                                            <div style="height: 400px;">
+                                                <canvas id="mainVisualization"></canvas>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-6 mb-4">
+                                    <div class="card">
+                                        <div class="card-body">
+                                            <h6 class="card-title">Wykres pomocniczy 1</h6>
+                                            <div style="height: 300px;">
+                                                <canvas id="secondaryVisualization1"></canvas>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-6 mb-4">
+                                    <div class="card">
+                                        <div class="card-body">
+                                            <h6 class="card-title">Wykres pomocniczy 2</h6>
+                                            <div style="height: 300px;">
+                                                <canvas id="secondaryVisualization2"></canvas>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+`);
+
+// Inicjalizacja systemu wizualizacji
+document.addEventListener('DOMContentLoaded', () => {
+    DataVisualization.init();
+});
 </script>
 {% endblock %} 
