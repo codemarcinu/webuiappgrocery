@@ -100,7 +100,7 @@ class Paragon(SQLModel, table=True):
     
     @validator('mime_type_pliku')
     def validate_mime_type(cls, v):
-        allowed_types = ['image/jpeg', 'image/png', 'image/gif']
+        allowed_types = ['image/jpeg', 'image/png', 'image/gif', 'application/pdf']
         if v not in allowed_types:
             raise ValueError(f'Niedozwolony typ pliku. Dozwolone typy: {", ".join(allowed_types)}')
         return v

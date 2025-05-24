@@ -26,7 +26,7 @@ class Settings(BaseSettings):
     # File Upload
     UPLOAD_FOLDER: str = "uploads"
     MAX_CONTENT_LENGTH: int = 16 * 1024 * 1024  # 16MB
-    ALLOWED_EXTENSIONS: List[str] = ["jpg", "jpeg", "png", "gif"]
+    ALLOWED_EXTENSIONS: List[str] = ["jpg", "jpeg", "png", "gif", "pdf"]
     
     # Ollama
     OLLAMA_API_URL: str = os.getenv("OLLAMA_API_URL", "http://localhost:11434")

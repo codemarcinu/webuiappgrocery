@@ -18,12 +18,25 @@ source venv/bin/activate  # Linux/Mac
 .\venv\Scripts\activate  # Windows
 ```
 
-3. Zainstaluj zależności:
+3. Zainstaluj zależności systemowe:
+```bash
+# Ubuntu/Debian
+sudo apt-get update
+sudo apt-get install -y poppler-utils redis-server
+
+# Fedora
+sudo dnf install -y poppler-utils redis
+
+# macOS
+brew install poppler redis
+```
+
+4. Zainstaluj zależności Pythona:
 ```bash
 pip install -r requirements.txt
 ```
 
-4. Skonfiguruj zmienne środowiskowe:
+5. Skonfiguruj zmienne środowiskowe:
    - Utwórz plik `.env` w głównym katalogu projektu
    - Skopiuj zawartość z `.env.example` i dostosuj wartości
 
@@ -39,19 +52,31 @@ Ta komenda utworzy wszystkie niezbędne tabele w bazie danych. Możesz ją uruch
 
 ## Uruchomienie Aplikacji
 
-1. Uruchom serwer deweloperski:
+1. Upewnij się, że Redis jest uruchomiony:
+```bash
+# Ubuntu/Debian
+sudo systemctl start redis-server
+
+# Fedora
+sudo systemctl start redis
+
+# macOS
+brew services start redis
+```
+
+2. Uruchom serwer deweloperski:
 ```bash
 uvicorn main:app --reload
 ```
 
-2. Otwórz przeglądarkę i przejdź pod adres:
+3. Otwórz przeglądarkę i przejdź pod adres:
 ```
 http://localhost:8000
 ```
 
 ## Funkcje
 
-- Automatyczne przetwarzanie paragonów
+- Automatyczne przetwarzanie paragonów (obsługa plików PDF i obrazów)
 - Zarządzanie produktami w spiżarni
 - Śledzenie dat ważności produktów
 - Kategoryzacja produktów
@@ -63,6 +88,7 @@ http://localhost:8000
 - SQLite (domyślnie) lub PostgreSQL
 - Ollama (dla przetwarzania paragonów)
 - Redis (dla Celery - przetwarzania w tle)
+- Poppler-utils (dla obsługi plików PDF)
 
 ## Licencja
 
