@@ -25,6 +25,7 @@ from db_logger import log_to_db
 from database import SessionLocal
 import pytesseract
 import re
+import time
 
 # Set environment variables for CUDA
 os.environ['CUDA_VISIBLE_DEVICES'] = ''  # Disable CUDA
@@ -146,6 +147,7 @@ class ReceiptProcessor:
         try:
             # Create upload directory if it doesn't exist
             upload_dir.mkdir(parents=True, exist_ok=True)
+            logger.info(f"Upload directory: {upload_dir.absolute()}")
             
             # Read file content once
             content = await file.read()
@@ -178,7 +180,15 @@ class ReceiptProcessor:
                             # Save first page as PNG
                             image_path = file_path.with_suffix('.png')
                             images[0].save(image_path, 'PNG')
-                            # Return the PNG path instead of PDF
+                            # Verify file was saved
+                            if not image_path.exists():
+                                raise HTTPException(
+                                    status_code=500,
+                                    detail=f"Failed to save converted image: {image_path}"
+                                )
+                            # Log file info
+                            file_size = image_path.stat().st_size
+                            logger.info(f"PDF converted and saved as image: {image_path.absolute()}, size: {file_size} bytes")
                             return image_path
                         else:
                             raise HTTPException(
@@ -201,6 +211,20 @@ class ReceiptProcessor:
                         elif img.mode != 'RGB':
                             img = img.convert('RGB')
                         img.save(file_path, "JPEG", quality=95)
+                    
+                    # Verify file was saved
+                    if not file_path.exists():
+                        raise HTTPException(
+                            status_code=500,
+                            detail=f"Failed to save file: {file_path}"
+                        )
+                    
+                    # Log file info
+                    file_size = file_path.stat().st_size
+                    logger.info(f"File saved successfully: {file_path.absolute()}, size: {file_size} bytes")
+                    
+                    return file_path
+                
             except (UnidentifiedImageError, OSError) as img_err:
                 logger.error(f"Error processing file {file.filename}: {str(img_err)}", exc_info=True)
                 raise HTTPException(
@@ -208,7 +232,6 @@ class ReceiptProcessor:
                     detail=f"Invalid or corrupted file: {str(img_err)}"
                 )
             
-            return file_path
         except HTTPException:
             raise
         except Exception as e:
@@ -218,18 +241,57 @@ class ReceiptProcessor:
                 detail="Error saving file"
             )
 
+    def _extract_text_with_retry(self, image_path: Path) -> str:
+        """Extract text with retry mechanism for file access"""
+        if not image_path.exists():
+            # Try different possible paths
+            possible_paths = [
+                image_path,
+                Path.cwd() / image_path,
+                Path(f"./{image_path}"),
+                Path(f"../{image_path}")
+            ]
+            
+            for path in possible_paths:
+                if path.exists():
+                    logger.info(f"Found file at: {path.absolute()}")
+                    image_path = path
+                    break
+            else:
+                raise FileNotFoundError(f"Could not find file: {image_path}")
+        
+        return pytesseract.image_to_string(Image.open(str(image_path)), lang='pol')
+
+    def monitor_file_access(self, file_path: Path) -> bool:
+        """Monitor if file is accessible"""
+        max_wait = 10  # 10 seconds
+        wait_interval = 0.5
+        
+        for _ in range(int(max_wait / wait_interval)):
+            if file_path.exists() and file_path.stat().st_size > 0:
+                return True
+            time.sleep(wait_interval)
+        
+        return False
+
     def _extract_text_from_image(self, image_path: Path) -> str:
         """Extract text from image using pytesseract"""
         try:
             # Check if file exists
             if not image_path.exists():
                 logger.error(f"Image file not found: {image_path}")
-                raise HTTPException(
-                    status_code=404,
-                    detail=f"Image file not found: {image_path}"
-                )
+                # Try with full path
+                full_path = Path.cwd() / image_path
+                if full_path.exists():
+                    image_path = full_path
+                    logger.info(f"Found file at full path: {full_path}")
+                else:
+                    raise HTTPException(
+                        status_code=404,
+                        detail=f"Image file not found: {image_path}"
+                    )
             
-            # Check if file has appropriate size
+            # Check file size
             if image_path.stat().st_size == 0:
                 logger.error(f"Image file is empty: {image_path}")
                 raise HTTPException(
@@ -237,12 +299,28 @@ class ReceiptProcessor:
                     detail=f"Image file is empty: {image_path}"
                 )
             
+            # Monitor file access
+            if not self.monitor_file_access(image_path):
+                raise HTTPException(
+                    status_code=503,
+                    detail=f"File not accessible after waiting: {image_path}"
+                )
+            
             logger.info(f"Starting OCR for image: {image_path}")
-            text = pytesseract.image_to_string(Image.open(str(image_path)), lang='pol')
-            logger.info(f"OCR completed successfully for {image_path}")
-            logger.debug(f"Extracted text:\n{text}")
-            return text
-
+            # Add retry mechanism for OCR
+            max_retries = 3
+            for attempt in range(max_retries):
+                try:
+                    text = self._extract_text_with_retry(image_path)
+                    logger.info(f"OCR completed successfully for {image_path}")
+                    logger.debug(f"Extracted text length: {len(text)}")
+                    return text
+                except Exception as e:
+                    if attempt == max_retries - 1:
+                        raise
+                    logger.warning(f"OCR attempt {attempt + 1} failed: {e}")
+                    time.sleep(1)  # Short pause before retry
+            
         except HTTPException:
             raise
         except Exception as e:
