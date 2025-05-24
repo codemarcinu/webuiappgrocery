@@ -270,16 +270,24 @@ class ReceiptProcessor:
                 json.dumps({
                     "file_path": str(image_path),
                     "stage": "llm_analysis",
-                    "status": "started"
+                    "status": "started",
+                    "text_length": len(extracted_text)
                 })
             )
             
             prompt = self._get_receipt_prompt_for_text_input(extracted_text)
             
-            llm_response = await ollama_generate(
-                prompt=prompt,
-                system="Jesteś pomocnym asystentem specjalizującym się w analizie tekstu z paragonów sklepowych i strukturyzowaniu go w formacie JSON."
-            )
+            try:
+                llm_response = await ollama_generate(
+                    prompt=prompt,
+                    system="Jesteś pomocnym asystentem specjalizującym się w analizie tekstu z paragonów sklepowych i strukturyzowaniu go w formacie JSON."
+                )
+            except OllamaTimeoutError as e:
+                logger.error(f"Timeout while processing receipt with Ollama: {str(e)}", exc_info=True)
+                raise HTTPException(
+                    status_code=504,
+                    detail=f"Receipt processing timed out after {settings.OLLAMA_TIMEOUT} seconds. The receipt may be too complex or the model may be overloaded. Please try again later."
+                )
 
             if not llm_response:
                 raise ValueError("Empty response from Ollama")
@@ -360,12 +368,20 @@ Oto tekst z paragonu do analizy:
 Zwróć tylko i wyłącznie kompletny obiekt JSON, bez żadnych dodatkowych komentarzy przed lub po nim.
 """
 
-    def _parse_ollama_response(self, response: str) -> Dict[str, Any]:
+    def _parse_ollama_response(self, response: Any) -> Dict[str, Any]:
         """Parse Ollama's response into structured data"""
         try:
-            # Fix: handle dict response from Ollama
-            if isinstance(response, dict) and 'response' in response:
-                response = response['response']
+            # Handle dictionary response from Ollama
+            if isinstance(response, dict):
+                if 'response' in response:
+                    response = response['response']
+                else:
+                    raise ValueError("Invalid Ollama response format: missing 'response' field")
+
+            # Convert to string if not already
+            if not isinstance(response, str):
+                response = str(response)
+
             # Remove markdown code block if present
             if response.strip().startswith("```json"):
                 response = response.strip()[7:-3].strip()

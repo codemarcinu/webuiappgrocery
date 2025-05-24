@@ -36,7 +36,7 @@ class OllamaClient:
         self.settings = get_settings()
         self.base_url = self.settings.OLLAMA_API_URL
         self.model = self.settings.OLLAMA_MODEL
-        self.timeout = 120  # Increased timeout to 120 seconds
+        self.timeout = self.settings.OLLAMA_TIMEOUT
         self.client = httpx.AsyncClient(
             base_url=self.base_url,
             timeout=self.timeout,
@@ -65,12 +65,18 @@ class OllamaClient:
             if system:
                 payload["system"] = system
 
+            logger.debug(f"Sending request to Ollama with timeout {self.timeout}s")
+            logger.debug(f"Using model: {self.model}")
+            logger.debug(f"Prompt length: {len(prompt)}")
+            if system:
+                logger.debug(f"System prompt length: {len(system)}")
+
             response = await self.client.post("/api/generate", json=payload)
             response.raise_for_status()
             return response.json()
         except httpx.TimeoutException as e:
             logger.error(f"Timeout while generating text: {str(e)}")
-            raise OllamaTimeoutError(f"Request timed out after {self.timeout} seconds")
+            raise OllamaTimeoutError(f"Request timed out after {self.timeout} seconds. The receipt may be too complex or the model may be overloaded.")
         except httpx.RequestError as e:
             logger.error(f"Connection error while generating text: {str(e)}")
             raise OllamaConnectionError(f"Failed to connect to Ollama: {str(e)}")
@@ -137,16 +143,23 @@ async def verify_model_availability() -> bool:
 
 def log_to_db(poziom: PoziomLogu, modul: str, funkcja: str, komunikat: str, szczegoly: str = None):
     """Helper function to log to database"""
-    with SessionLocal() as db:
-        log = LogBledow(
-            poziom=poziom,
-            modul_aplikacji=modul,
-            funkcja=funkcja,
-            komunikat_bledu=komunikat,
-            szczegoly_techniczne=szczegoly
-        )
-        db.add(log)
-        db.commit()
+    try:
+        with SessionLocal() as db:
+            log = LogBledow(
+                poziom=poziom,
+                modul_aplikacji=modul,
+                funkcja=funkcja,
+                komunikat_bledu=komunikat,
+                szczegoly_techniczne=szczegoly
+            )
+            db.add(log)
+            db.commit()
+    except Exception as e:
+        # Fallback to regular logging if database logging fails
+        logger.error(f"Failed to log to database: {str(e)}")
+        logger.error(f"Original log message: {komunikat}")
+        if szczegoly:
+            logger.error(f"Details: {szczegoly}")
 
 async def ollama_generate(prompt: str, system: Optional[str] = None) -> Dict[str, Any]:
     """Helper function to generate text using Ollama"""
