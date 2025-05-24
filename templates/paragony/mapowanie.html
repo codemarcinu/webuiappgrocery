@@ -15,11 +15,18 @@
             <span class="d-md-none">Masowe</span>
         </button>
         <button type="button" 
+                class="btn btn-outline-primary flex-grow-1 flex-md-grow-0" 
+                onclick="toggleBatchCategoryMode()">
+            <i class="fas fa-tags"></i> <span class="d-none d-md-inline">Mapowanie kategorii</span>
+            <span class="d-md-none">Kategorie</span>
+        </button>
+        <button type="button" 
                 class="btn btn-outline-secondary flex-grow-1 flex-md-grow-0" 
                 data-bs-toggle="tooltip" 
                 data-bs-html="true"
                 title="<b>Skróty klawiszowe:</b><br>
                        Alt + M - Tryb masowy<br>
+                       Alt + K - Mapowanie kategorii<br>
                        Alt + S - Wyszukaj<br>
                        Alt + N - Dodaj jako nowy<br>
                        Alt + Q - Szybkie mapowanie">
@@ -193,6 +200,57 @@
     </div>
 </div>
 
+<!-- Batch Category Modal -->
+<div class="modal fade" id="batchCategoryModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Mapowanie wsadowe kategorii</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">Wybierz kategorię:</label>
+                    <select class="form-select" id="batchCategorySelect">
+                        <option value="">Wybierz kategorię...</option>
+                        <option value="Nabiał">Nabiał</option>
+                        <option value="Pieczywo">Pieczywo</option>
+                        <option value="Mięso">Mięso</option>
+                        <option value="Warzywa">Warzywa</option>
+                        <option value="Owoce">Owoce</option>
+                        <option value="Słodycze">Słodycze</option>
+                        <option value="Napoje">Napoje</option>
+                        <option value="Inne">Inne</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Filtruj produkty:</label>
+                    <input type="text" 
+                           class="form-control" 
+                           id="batchCategorySearch" 
+                           placeholder="Wyszukaj produkty..."
+                           onkeyup="filterBatchProducts()">
+                </div>
+                <div class="mb-3">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="selectAllBatch" onchange="toggleSelectAllBatch()">
+                        <label class="form-check-label" for="selectAllBatch">
+                            Zaznacz wszystkie
+                        </label>
+                    </div>
+                </div>
+                <div id="batchProductsList" class="list-group mb-3" style="max-height: 300px; overflow-y: auto;">
+                    <!-- Products will be listed here -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Anuluj</button>
+                <button type="button" class="btn btn-primary" onclick="applyBatchCategory()">Zastosuj</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <style>
 .swipe-hint {
     position: absolute;
@@ -280,6 +338,12 @@ document.addEventListener('keydown', function(e) {
             quickMap(productId);
         }
     }
+
+    // Alt + K to toggle batch category mode
+    if (e.altKey && e.key === 'k') {
+        e.preventDefault();
+        toggleBatchCategoryMode();
+    }
 });
 
 function getCsrfToken() {
@@ -315,14 +379,19 @@ function logError(error, type, context = {}) {
     }
 
     if (ErrorConfig.logToServer) {
-        fetch('/api/logs/error', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-Token': getCsrfToken()
-            },
-            body: JSON.stringify(errorLog)
-        }).catch(console.error);
+        DataCompressor.compress(errorLog).then(compressedData => {
+            fetch('/api/logs/error', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': getCsrfToken(),
+                    'X-Compression': compressedData.compressed ? compressedData.method : 'none'
+                },
+                body: compressedData.compressed ? 
+                    compressedData.data : 
+                    JSON.stringify(errorLog)
+            }).catch(console.error);
+        });
     }
 }
 
@@ -396,6 +465,260 @@ function getErrorTitle(type) {
     }
 }
 
+// Undo/Redo system
+const OperationTypes = {
+    MAP: 'map',
+    IGNORE: 'ignore',
+    NEW: 'new',
+    BATCH_CATEGORY: 'batch_category'
+};
+
+class OperationHistory {
+    constructor() {
+        this.undoStack = [];
+        this.redoStack = [];
+        this.maxStackSize = 50;
+    }
+
+    push(operation) {
+        this.undoStack.push(operation);
+        this.redoStack = []; // Clear redo stack when new operation is performed
+        if (this.undoStack.length > this.maxStackSize) {
+            this.undoStack.shift();
+        }
+    }
+
+    undo() {
+        if (this.undoStack.length === 0) return null;
+        const operation = this.undoStack.pop();
+        this.redoStack.push(operation);
+        return operation;
+    }
+
+    redo() {
+        if (this.redoStack.length === 0) return null;
+        const operation = this.redoStack.pop();
+        this.undoStack.push(operation);
+        return operation;
+    }
+
+    canUndo() {
+        return this.undoStack.length > 0;
+    }
+
+    canRedo() {
+        return this.redoStack.length > 0;
+    }
+}
+
+const operationHistory = new OperationHistory();
+
+// Add undo/redo buttons to the UI
+document.addEventListener('DOMContentLoaded', function() {
+    const buttonContainer = document.querySelector('.mb-3.d-flex');
+    const undoButton = document.createElement('button');
+    undoButton.className = 'btn btn-outline-secondary flex-grow-1 flex-md-grow-0';
+    undoButton.innerHTML = '<i class="fas fa-undo"></i> <span class="d-none d-md-inline">Cofnij</span>';
+    undoButton.onclick = handleUndo;
+    undoButton.disabled = true;
+
+    const redoButton = document.createElement('button');
+    redoButton.className = 'btn btn-outline-secondary flex-grow-1 flex-md-grow-0';
+    redoButton.innerHTML = '<i class="fas fa-redo"></i> <span class="d-none d-md-inline">Ponów</span>';
+    redoButton.onclick = handleRedo;
+    redoButton.disabled = true;
+
+    buttonContainer.insertBefore(redoButton, buttonContainer.firstChild);
+    buttonContainer.insertBefore(undoButton, buttonContainer.firstChild);
+
+    // Add keyboard shortcuts
+    document.addEventListener('keydown', function(e) {
+        if (e.ctrlKey || e.metaKey) {
+            if (e.key === 'z') {
+                e.preventDefault();
+                if (e.shiftKey) {
+                    handleRedo();
+                } else {
+                    handleUndo();
+                }
+            } else if (e.key === 'y') {
+                e.preventDefault();
+                handleRedo();
+            }
+        }
+    });
+});
+
+function updateUndoRedoButtons() {
+    const undoButton = document.querySelector('button[onclick="handleUndo()"]');
+    const redoButton = document.querySelector('button[onclick="handleRedo()"]');
+    if (undoButton) undoButton.disabled = !operationHistory.canUndo();
+    if (redoButton) redoButton.disabled = !operationHistory.canRedo();
+}
+
+async function handleUndo() {
+    const operation = operationHistory.undo();
+    if (!operation) return;
+
+    try {
+        switch (operation.type) {
+            case OperationTypes.MAP:
+                await undoMap(operation);
+                break;
+            case OperationTypes.IGNORE:
+                await undoIgnore(operation);
+                break;
+            case OperationTypes.NEW:
+                await undoNew(operation);
+                break;
+            case OperationTypes.BATCH_CATEGORY:
+                await undoBatchCategory(operation);
+                break;
+        }
+        showNotification('Operacja cofnięta', 2000);
+        updateUndoRedoButtons();
+    } catch (error) {
+        console.error('Error during undo:', error);
+        showError('Nie udało się cofnąć operacji', ErrorTypes.SERVER);
+        operationHistory.undoStack.push(operation);
+        updateUndoRedoButtons();
+    }
+}
+
+async function handleRedo() {
+    const operation = operationHistory.redo();
+    if (!operation) return;
+
+    try {
+        switch (operation.type) {
+            case OperationTypes.MAP:
+                await redoMap(operation);
+                break;
+            case OperationTypes.IGNORE:
+                await redoIgnore(operation);
+                break;
+            case OperationTypes.NEW:
+                await redoNew(operation);
+                break;
+            case OperationTypes.BATCH_CATEGORY:
+                await redoBatchCategory(operation);
+                break;
+        }
+        showNotification('Operacja ponowiona', 2000);
+        updateUndoRedoButtons();
+    } catch (error) {
+        console.error('Error during redo:', error);
+        showError('Nie udało się ponowić operacji', ErrorTypes.SERVER);
+        operationHistory.redoStack.push(operation);
+        updateUndoRedoButtons();
+    }
+}
+
+// Product history caching system
+const HistoryCache = {
+    cache: new Map(),
+    maxCacheSize: 50,
+    pendingRequests: new Map(),
+    cacheTimeout: 5 * 60 * 1000, // 5 minutes
+    
+    async getHistory(productId) {
+        const cacheKey = `history-${productId}`;
+        const cachedData = this.cache.get(cacheKey);
+        
+        // Return cached data if it's still valid
+        if (cachedData && Date.now() - cachedData.timestamp < this.cacheTimeout) {
+            return cachedData.data;
+        }
+        
+        // Return pending request if exists
+        if (this.pendingRequests.has(cacheKey)) {
+            return this.pendingRequests.get(cacheKey);
+        }
+        
+        // Create new request
+        const request = this.fetchHistory(productId);
+        this.pendingRequests.set(cacheKey, request);
+        
+        try {
+            const results = await request;
+            this.cache.set(cacheKey, {
+                data: results,
+                timestamp: Date.now()
+            });
+            
+            // Manage cache size
+            if (this.cache.size > this.maxCacheSize) {
+                const firstKey = this.cache.keys().next().value;
+                this.cache.delete(firstKey);
+            }
+            
+            return results;
+        } finally {
+            this.pendingRequests.delete(cacheKey);
+        }
+    },
+    
+    async fetchHistory(productId) {
+        const response = await fetch(`/api/produkty/historia/${productId}`);
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const data = await response.json();
+        if (data.status !== 'success') {
+            throw new Error(data.message || 'Błąd podczas ładowania historii produktu');
+        }
+        return data.history;
+    },
+    
+    clearCache() {
+        this.cache.clear();
+        this.pendingRequests.clear();
+    },
+    
+    invalidateCache(productId) {
+        const cacheKey = `history-${productId}`;
+        this.cache.delete(cacheKey);
+    }
+};
+
+// Update loadProductHistory function to use cache
+async function loadProductHistory(productId) {
+    const historyContainer = document.querySelector(`#mapModal${productId} .card-body`);
+    const loadingHtml = `
+        <div class="d-flex justify-content-center">
+            <div class="spinner-border spinner-border-sm text-primary" role="status">
+                <span class="visually-hidden">Ładowanie...</span>
+            </div>
+        </div>
+    `;
+    
+    // Show loading state
+    document.getElementById(`lastPurchase${productId}`).innerHTML = loadingHtml;
+    document.getElementById(`avgPrice${productId}`).innerHTML = loadingHtml;
+    document.getElementById(`purchaseFreq${productId}`).innerHTML = loadingHtml;
+    
+    try {
+        const history = await HistoryCache.getHistory(productId);
+        
+        document.getElementById(`lastPurchase${productId}`).textContent = 
+            history.last_purchase ? new Date(history.last_purchase).toLocaleDateString() : 'Nigdy';
+        document.getElementById(`avgPrice${productId}`).textContent = 
+            history.avg_price ? `${history.avg_price.toFixed(2)} zł` : '-';
+        document.getElementById(`purchaseFreq${productId}`).textContent = 
+            history.purchase_frequency ? `${history.purchase_frequency} dni` : '-';
+    } catch (error) {
+        console.error('Error loading product history:', error);
+        document.getElementById(`lastPurchase${productId}`).textContent = '-';
+        document.getElementById(`avgPrice${productId}`).textContent = '-';
+        document.getElementById(`purchaseFreq${productId}`).textContent = '-';
+        showError(
+            error.message || 'Wystąpił błąd podczas ładowania historii produktu',
+            error.name === 'TypeError' ? ErrorTypes.NETWORK : ErrorTypes.SERVER
+        );
+    }
+}
+
+// Update mapToExisting to invalidate history cache
 async function mapToExisting(receiptProductId, pantryProductId) {
     const operation = async () => {
         const response = await fetch(`/api/produkty/mapuj/${receiptProductId}`, {
@@ -418,8 +741,20 @@ async function mapToExisting(receiptProductId, pantryProductId) {
             throw new Error(data.message || 'Błąd podczas mapowania produktu');
         }
 
+        // Invalidate history cache for this product
+        HistoryCache.invalidateCache(receiptProductId);
+
+        // Store operation in history
+        operationHistory.push({
+            type: OperationTypes.MAP,
+            receiptProductId,
+            pantryProductId,
+            previousStatus: getCurrentStatus(receiptProductId)
+        });
+
         showNotification('Produkt został zmapowany!', 2000);
         updateRowStatus(receiptProductId, 'zmapowany');
+        updateUndoRedoButtons();
     };
 
     try {
@@ -435,164 +770,273 @@ async function mapToExisting(receiptProductId, pantryProductId) {
     }
 }
 
-function mapAsNew(receiptProductId) {
-    fetch(`/api/produkty/mapuj/${receiptProductId}`, {
+// Helper functions for undo/redo operations
+function getCurrentStatus(productId) {
+    const row = document.querySelector(`button[data-bs-target='#mapModal${productId}']`).closest('tr');
+    const statusBadge = row.querySelector('.badge');
+    return statusBadge ? statusBadge.textContent.toLowerCase() : 'oczekuje';
+}
+
+async function undoMap(operation) {
+    const response = await fetch(`/api/produkty/cofnij-mapowanie/${operation.receiptProductId}`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
             'X-CSRF-Token': getCsrfToken()
-        },
-        body: JSON.stringify({
-            map_as_new: true
-        })
-    })
-    .then(response => {
+        }
+    });
+
+    if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    if (data.status !== 'success') {
+        throw new Error(data.message || 'Błąd podczas cofania mapowania');
+    }
+
+    updateRowStatus(operation.receiptProductId, operation.previousStatus);
+}
+
+async function redoMap(operation) {
+    await mapToExisting(operation.receiptProductId, operation.pantryProductId);
+}
+
+async function mapAsNew(receiptProductId) {
+    const operation = async () => {
+        const response = await fetch(`/api/produkty/mapuj/${receiptProductId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-Token': getCsrfToken()
+            },
+            body: JSON.stringify({
+                map_as_new: true
+            })
+        });
+
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
-        return response.json();
-    })
-    .then(data => {
-        if (data.status === 'success') {
-            showNotification('Produkt dodany jako nowy!', 2000);
-            updateRowStatus(receiptProductId, 'nowy');
-        } else {
+
+        const data = await response.json();
+        if (data.status !== 'success') {
             throw new Error(data.message || 'Błąd podczas mapowania produktu');
         }
-    })
-    .catch(error => {
+
+        // Store operation in history
+        operationHistory.push({
+            type: OperationTypes.NEW,
+            receiptProductId,
+            previousStatus: getCurrentStatus(receiptProductId)
+        });
+
+        showNotification('Produkt dodany jako nowy!', 2000);
+        updateRowStatus(receiptProductId, 'nowy');
+        updateUndoRedoButtons();
+    };
+
+    try {
+        await retryOperation(operation);
+    } catch (error) {
         console.error('Error:', error);
+        logError(error, ErrorTypes.SERVER, { receiptProductId });
+        lastFailedOperation = () => mapAsNew(receiptProductId);
         showError(
             error.message || 'Wystąpił błąd podczas mapowania produktu',
             error.name === 'TypeError' ? ErrorTypes.NETWORK : ErrorTypes.SERVER
         );
-    });
+    }
 }
 
-function ignoreProduct(receiptProductId) {
+async function ignoreProduct(receiptProductId) {
     if (!confirm('Czy na pewno chcesz zignorować ten produkt?')) {
         return;
     }
-    fetch(`/api/produkty/ignoruj/${receiptProductId}`, {
-        method: 'POST',
-        headers: {
-            'X-CSRF-Token': getCsrfToken()
-        }
-    })
-    .then(response => {
+
+    const operation = async () => {
+        const response = await fetch(`/api/produkty/ignoruj/${receiptProductId}`, {
+            method: 'POST',
+            headers: {
+                'X-CSRF-Token': getCsrfToken()
+            }
+        });
+
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
-        return response.json();
-    })
-    .then(data => {
-        if (data.status === 'success') {
-            showNotification('Produkt zignorowany!', 2000);
-            updateRowStatus(receiptProductId, 'ignorowany');
-        } else {
+
+        const data = await response.json();
+        if (data.status !== 'success') {
             throw new Error(data.message || 'Błąd podczas ignorowania produktu');
         }
-    })
-    .catch(error => {
+
+        // Store operation in history
+        operationHistory.push({
+            type: OperationTypes.IGNORE,
+            receiptProductId,
+            previousStatus: getCurrentStatus(receiptProductId)
+        });
+
+        showNotification('Produkt zignorowany!', 2000);
+        updateRowStatus(receiptProductId, 'ignorowany');
+        updateUndoRedoButtons();
+    };
+
+    try {
+        await retryOperation(operation);
+    } catch (error) {
         console.error('Error:', error);
+        logError(error, ErrorTypes.SERVER, { receiptProductId });
+        lastFailedOperation = () => ignoreProduct(receiptProductId);
         showError(
             error.message || 'Wystąpił błąd podczas ignorowania produktu',
             error.name === 'TypeError' ? ErrorTypes.NETWORK : ErrorTypes.SERVER
         );
-    });
-}
-
-function updateRowStatus(productId, newStatus) {
-    // Znajdź wiersz i zaktualizuj status bez przeładowania strony
-    const row = document.querySelector(`button[data-bs-target='#mapModal${productId}']`).closest('tr');
-    const statusCell = row.querySelector('td:nth-child(5)');
-    let badge = '';
-    if (newStatus === 'zmapowany') badge = '<span class="badge bg-success">Zmapowany</span>';
-    else if (newStatus === 'nowy') badge = '<span class="badge bg-info">Nowy</span>';
-    else if (newStatus === 'ignorowany') badge = '<span class="badge bg-secondary">Ignorowany</span>';
-    else badge = '<span class="badge bg-warning">Oczekuje</span>';
-    statusCell.innerHTML = badge;
-    // Opcjonalnie: dezaktywuj przyciski akcji
-    row.querySelectorAll('button, a').forEach(btn => btn.disabled = true);
-}
-
-function showNotification(msg, timeout=3000) {
-    const notif = document.createElement('div');
-    notif.className = 'alert alert-info position-fixed top-0 end-0 m-3 shadow';
-    notif.style.zIndex = 2000;
-    notif.innerHTML = msg;
-    document.body.appendChild(notif);
-    setTimeout(() => notif.remove(), timeout);
-}
-
-function filterProducts(productId) {
-    const searchInput = document.getElementById(`searchProduct${productId}`);
-    const searchText = searchInput.value.toLowerCase();
-    const productList = document.querySelectorAll(`#mapModal${productId} .list-group-item`);
-    
-    productList.forEach(item => {
-        const productName = item.textContent.toLowerCase();
-        if (productName.includes(searchText)) {
-            item.style.display = '';
-        } else {
-            item.style.display = 'none';
-        }
-    });
-}
-
-function filterByCategory(productId) {
-    const categoryFilter = document.getElementById(`categoryFilter${productId}`);
-    const selectedCategory = categoryFilter.value;
-    const productList = document.querySelectorAll(`#mapModal${productId} .list-group-item`);
-    
-    productList.forEach(item => {
-        const productCategory = item.textContent.split('(')[1].split(')')[0].trim().toLowerCase();
-        if (selectedCategory === '' || productCategory === selectedCategory) {
-            item.style.display = '';
-        } else {
-            item.style.display = 'none';
-        }
-    });
-}
-
-let bulkMode = false;
-let selectedProducts = new Set();
-
-function toggleBulkMode() {
-    bulkMode = !bulkMode;
-    const btn = document.querySelector('button[onclick="toggleBulkMode()"]');
-    if (bulkMode) {
-        btn.classList.add('active');
-        document.querySelectorAll('.map-btn').forEach(btn => {
-            btn.innerHTML = '<i class="fas fa-check"></i> Wybierz';
-            btn.onclick = () => toggleProductSelection(btn);
-        });
-    } else {
-        btn.classList.remove('active');
-        document.querySelectorAll('.map-btn').forEach(btn => {
-            btn.innerHTML = '<i class="fas fa-link"></i> Mapuj';
-            btn.onclick = null;
-            btn.setAttribute('data-bs-toggle', 'modal');
-            btn.setAttribute('data-bs-target', btn.getAttribute('data-bs-target'));
-        });
-        selectedProducts.clear();
     }
 }
 
-function toggleProductSelection(btn) {
-    const productId = btn.closest('tr').querySelector('button[data-bs-target]').getAttribute('data-bs-target').replace('#mapModal', '');
-    if (selectedProducts.has(productId)) {
-        selectedProducts.delete(productId);
-        btn.classList.remove('btn-success');
-        btn.classList.add('btn-primary');
-    } else {
-        selectedProducts.add(productId);
-        btn.classList.remove('btn-primary');
-        btn.classList.add('btn-success');
+async function undoIgnore(operation) {
+    const response = await fetch(`/api/produkty/cofnij-ignorowanie/${operation.receiptProductId}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-Token': getCsrfToken()
+        }
+    });
+
+    if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
     }
+
+    const data = await response.json();
+    if (data.status !== 'success') {
+        throw new Error(data.message || 'Błąd podczas cofania ignorowania');
+    }
+
+    updateRowStatus(operation.receiptProductId, operation.previousStatus);
 }
 
-function bulkMapProducts(pantryProductId) {
+async function redoIgnore(operation) {
+    await ignoreProduct(operation.receiptProductId);
+}
+
+async function undoNew(operation) {
+    const response = await fetch(`/api/produkty/cofnij-nowy/${operation.receiptProductId}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-Token': getCsrfToken()
+        }
+    });
+
+    if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    if (data.status !== 'success') {
+        throw new Error(data.message || 'Błąd podczas cofania dodania nowego produktu');
+    }
+
+    updateRowStatus(operation.receiptProductId, operation.previousStatus);
+}
+
+async function redoNew(operation) {
+    await mapAsNew(operation.receiptProductId);
+}
+
+// Bulk operations optimization
+const BulkOperations = {
+    batchSize: 5,
+    maxConcurrent: 3,
+    retryAttempts: 3,
+    retryDelay: 1000,
+    
+    async processBatch(products, pantryProductId, onProgress, onError) {
+        const batches = [];
+        for (let i = 0; i < products.length; i += this.batchSize) {
+            batches.push(products.slice(i, i + this.batchSize));
+        }
+        
+        let completed = 0;
+        let errors = [];
+        let previousStatuses = new Map();
+        
+        // Store previous statuses
+        products.forEach(id => {
+            previousStatuses.set(id, getCurrentStatus(id));
+        });
+        
+        // Process batches with concurrency limit
+        const processBatchWithRetry = async (batch) => {
+            const results = await Promise.all(
+                batch.map(productId => this.processWithRetry(productId, pantryProductId))
+            );
+            
+            results.forEach((result, index) => {
+                const productId = batch[index];
+                if (result.error) {
+                    errors.push({ productId, error: result.error });
+                }
+                completed++;
+                onProgress(completed, products.length);
+            });
+        };
+        
+        // Process batches with concurrency control
+        for (let i = 0; i < batches.length; i += this.maxConcurrent) {
+            const currentBatches = batches.slice(i, i + this.maxConcurrent);
+            await Promise.all(currentBatches.map(processBatchWithRetry));
+        }
+        
+        return { errors, previousStatuses };
+    },
+    
+    async processWithRetry(productId, pantryProductId) {
+        for (let attempt = 1; attempt <= this.retryAttempts; attempt++) {
+            try {
+                const requestData = {
+                    receiptProductId: productId,
+                    pantryProductId: pantryProductId
+                };
+                
+                const compressedData = await DataCompressor.compress(requestData);
+                
+                const response = await fetch(`/api/produkty/mapuj/${productId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-Token': getCsrfToken(),
+                        'X-Compression': compressedData.compressed ? compressedData.method : 'none'
+                    },
+                    body: compressedData.compressed ? 
+                        compressedData.data : 
+                        JSON.stringify(requestData)
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const responseData = await response.json();
+                if (responseData.status !== 'success') {
+                    throw new Error(responseData.message || 'Błąd podczas mapowania produktu');
+                }
+                
+                return { success: true };
+            } catch (error) {
+                if (attempt === this.retryAttempts) {
+                    return { error: error.message };
+                }
+                await new Promise(resolve => setTimeout(resolve, this.retryDelay * attempt));
+            }
+        }
+    }
+};
+
+// Update bulkMapProducts function to use optimized bulk operations
+async function bulkMapProducts(pantryProductId) {
     if (selectedProducts.size === 0) {
         showError('Wybierz produkty do zmapowania', ErrorTypes.VALIDATION);
         return;
@@ -604,74 +1048,100 @@ function bulkMapProducts(pantryProductId) {
     progressBarInner.style.width = '0%';
     
     const products = Array.from(selectedProducts);
-    let completed = 0;
-    let errors = [];
     
-    const promises = products.map(productId => 
-        fetch(`/api/produkty/mapuj/${productId}`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-Token': getCsrfToken()
+    try {
+        const { errors, previousStatuses } = await BulkOperations.processBatch(
+            products,
+            pantryProductId,
+            (completed, total) => {
+                const progress = (completed / total) * 100;
+                progressBarInner.style.width = `${progress}%`;
             },
-            body: JSON.stringify({
-                pantry_product_id: pantryProductId
-            })
-        })
-        .then(response => {
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+            (error) => {
+                console.error('Error during bulk operation:', error);
             }
-            return response.json();
-        })
-        .then(result => {
-            completed++;
-            const progress = (completed / products.length) * 100;
-            progressBarInner.style.width = `${progress}%`;
-            if (result.status !== 'success') {
-                throw new Error(result.message || 'Błąd podczas mapowania produktu');
-            }
-            return result;
-        })
-        .catch(error => {
-            errors.push({ productId, error: error.message });
-            completed++;
-            const progress = (completed / products.length) * 100;
-            progressBarInner.style.width = `${progress}%`;
-            return null;
-        })
-    );
-    
-    Promise.all(promises)
-        .then(results => {
-            if (errors.length === 0) {
-                showNotification('Wszystkie produkty zostały zmapowane!', 2000);
-                selectedProducts.forEach(id => updateRowStatus(id, 'zmapowany'));
-                toggleBulkMode();
-            } else {
-                showError(
-                    `Zmapowano ${products.length - errors.length} z ${products.length} produktów. ${errors.length} błędów.`,
-                    ErrorTypes.VALIDATION
-                );
-                errors.forEach(({ productId }) => {
-                    const row = document.querySelector(`button[data-bs-target='#mapModal${productId}']`).closest('tr');
-                    row.classList.add('table-danger');
-                });
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
+        );
+        
+        if (errors.length === 0) {
+            // Store bulk operation in history
+            operationHistory.push({
+                type: OperationTypes.MAP,
+                isBulk: true,
+                products: products.map(id => ({
+                    receiptProductId: id,
+                    pantryProductId,
+                    previousStatus: previousStatuses.get(id)
+                }))
+            });
+            
+            showNotification('Wszystkie produkty zostały zmapowane!', 2000);
+            selectedProducts.forEach(id => updateRowStatus(id, 'zmapowany'));
+            toggleBulkMode();
+            updateUndoRedoButtons();
+        } else {
             showError(
-                'Wystąpił błąd podczas mapowania produktów',
-                ErrorTypes.SERVER
+                `Zmapowano ${products.length - errors.length} z ${products.length} produktów. ${errors.length} błędów.`,
+                ErrorTypes.VALIDATION
             );
-        })
-        .finally(() => {
-            setTimeout(() => {
-                progressBar.style.display = 'none';
-                progressBarInner.style.width = '0%';
-            }, 1000);
-        });
+            errors.forEach(({ productId }) => {
+                const row = document.querySelector(`button[data-bs-target='#mapModal${productId}']`).closest('tr');
+                row.classList.add('table-danger');
+            });
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        showError(
+            'Wystąpił błąd podczas mapowania produktów',
+            ErrorTypes.SERVER
+        );
+    } finally {
+        setTimeout(() => {
+            progressBar.style.display = 'none';
+            progressBarInner.style.width = '0%';
+        }, 1000);
+    }
+}
+
+// Add bulk operation recovery
+async function recoverBulkOperation(operation) {
+    if (!operation.isBulk) return;
+    
+    const progressBar = document.getElementById('bulkProgress');
+    const progressBarInner = progressBar.querySelector('.progress-bar');
+    progressBar.style.display = 'flex';
+    progressBarInner.style.width = '0%';
+    
+    const products = operation.products.map(p => p.receiptProductId);
+    const pantryProductId = operation.products[0].pantryProductId;
+    
+    try {
+        const { errors } = await BulkOperations.processBatch(
+            products,
+            pantryProductId,
+            (completed, total) => {
+                const progress = (completed / total) * 100;
+                progressBarInner.style.width = `${progress}%`;
+            }
+        );
+        
+        if (errors.length === 0) {
+            showNotification('Operacja masowa została przywrócona!', 2000);
+            products.forEach(id => updateRowStatus(id, 'zmapowany'));
+        } else {
+            showError(
+                `Przywrócono ${products.length - errors.length} z ${products.length} produktów. ${errors.length} błędów.`,
+                ErrorTypes.VALIDATION
+            );
+        }
+    } catch (error) {
+        console.error('Error during recovery:', error);
+        showError('Wystąpił błąd podczas przywracania operacji masowej', ErrorTypes.SERVER);
+    } finally {
+        setTimeout(() => {
+            progressBar.style.display = 'none';
+            progressBarInner.style.width = '0%';
+        }, 1000);
+    }
 }
 
 function quickMap(productId) {
@@ -689,41 +1159,21 @@ function quickMap(productId) {
     }
 }
 
-function loadProductHistory(productId) {
-    fetch(`/api/produkty/historia/${productId}`)
-        .then(response => {
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            return response.json();
-        })
-        .then(data => {
-            if (data.status === 'success') {
-                const history = data.history;
-                document.getElementById(`lastPurchase${productId}`).textContent = 
-                    history.last_purchase ? new Date(history.last_purchase).toLocaleDateString() : 'Nigdy';
-                document.getElementById(`avgPrice${productId}`).textContent = 
-                    history.avg_price ? `${history.avg_price.toFixed(2)} zł` : '-';
-                document.getElementById(`purchaseFreq${productId}`).textContent = 
-                    history.purchase_frequency ? `${history.purchase_frequency} dni` : '-';
-            } else {
-                throw new Error(data.message || 'Błąd podczas ładowania historii produktu');
-            }
-        })
-        .catch(error => {
-            console.error('Error loading product history:', error);
-            showError(
-                error.message || 'Wystąpił błąd podczas ładowania historii produktu',
-                error.name === 'TypeError' ? ErrorTypes.NETWORK : ErrorTypes.SERVER
-            );
-        });
-}
-
 // Add event listener for modal show
 document.addEventListener('DOMContentLoaded', function() {
     document.querySelectorAll('[data-bs-toggle="modal"]').forEach(button => {
         button.addEventListener('click', function() {
             const productId = this.getAttribute('data-bs-target').replace('#mapModal', '');
+            const modal = document.getElementById(`mapModal${productId}`);
+            
+            // Add debounced search
+            const searchInput = modal.querySelector('input[type="text"]');
+            searchInput.addEventListener('input', debounce(() => filterProducts(productId), 300));
+            
+            // Load initial suggestions
+            setTimeout(() => filterProducts(productId), 100);
+            
+            // Load product history
             setTimeout(() => loadProductHistory(productId), 100);
         });
     });
@@ -779,6 +1229,617 @@ function handleSwipe(row) {
         if (confirm('Czy na pewno chcesz zignorować ten produkt?')) {
             ignoreProduct(productId);
         }
+    }
+}
+
+// Lazy loading system for suggestions
+const SuggestionCache = {
+    cache: new Map(),
+    maxCacheSize: 100,
+    pendingRequests: new Map(),
+    
+    async getSuggestions(productId, searchTerm = '', category = '') {
+        const cacheKey = `${productId}-${searchTerm}-${category}`;
+        
+        // Return cached results if available
+        if (this.cache.has(cacheKey)) {
+            return this.cache.get(cacheKey);
+        }
+        
+        // Return pending request if exists
+        if (this.pendingRequests.has(cacheKey)) {
+            return this.pendingRequests.get(cacheKey);
+        }
+        
+        // Create new request
+        const request = this.fetchSuggestions(productId, searchTerm, category);
+        this.pendingRequests.set(cacheKey, request);
+        
+        try {
+            const results = await request;
+            this.cache.set(cacheKey, results);
+            
+            // Manage cache size
+            if (this.cache.size > this.maxCacheSize) {
+                const firstKey = this.cache.keys().next().value;
+                this.cache.delete(firstKey);
+            }
+            
+            return results;
+        } finally {
+            this.pendingRequests.delete(cacheKey);
+        }
+    },
+    
+    async fetchSuggestions(productId, searchTerm, category) {
+        const response = await fetch(`/api/produkty/sugestie/${productId}?search=${encodeURIComponent(searchTerm)}&category=${encodeURIComponent(category)}`);
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const data = await response.json();
+        if (data.status !== 'success') {
+            throw new Error(data.message || 'Błąd podczas pobierania sugestii');
+        }
+        return data.suggestions;
+    },
+    
+    clearCache() {
+        this.cache.clear();
+        this.pendingRequests.clear();
+    }
+};
+
+// API request optimization system
+const ApiOptimizer = {
+    requestQueue: new Map(),
+    responseCache: new Map(),
+    cacheTimeout: 5 * 60 * 1000, // 5 minutes
+    batchTimeout: 100, // ms
+    pendingBatches: new Map(),
+    
+    // Batch similar requests
+    async batchRequest(endpoint, params, options = {}) {
+        const cacheKey = this.getCacheKey(endpoint, params);
+        
+        // Check cache first
+        const cachedData = this.getCachedResponse(cacheKey);
+        if (cachedData) {
+            return cachedData;
+        }
+        
+        // Add to existing batch or create new one
+        if (!this.pendingBatches.has(endpoint)) {
+            this.pendingBatches.set(endpoint, {
+                params: [],
+                promise: null,
+                timeout: null
+            });
+        }
+        
+        const batch = this.pendingBatches.get(endpoint);
+        batch.params.push(params);
+        
+        // Clear existing timeout
+        if (batch.timeout) {
+            clearTimeout(batch.timeout);
+        }
+        
+        // Create new promise if none exists
+        if (!batch.promise) {
+            batch.promise = new Promise((resolve) => {
+                batch.timeout = setTimeout(async () => {
+                    const results = await this.executeBatch(endpoint, batch.params, options);
+                    this.pendingBatches.delete(endpoint);
+                    resolve(results);
+                }, this.batchTimeout);
+            });
+        }
+        
+        return batch.promise.then(results => {
+            const index = batch.params.indexOf(params);
+            return results[index];
+        });
+    },
+    
+    // Execute batched request
+    async executeBatch(endpoint, paramsList, options = {}) {
+        // Compress request data
+        const compressedData = await DataCompressor.compress({
+            batch: paramsList
+        });
+        
+        const response = await fetch(endpoint, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-Token': getCsrfToken(),
+                'X-Compression': compressedData.compressed ? compressedData.method : 'none',
+                ...options.headers
+            },
+            body: compressedData.compressed ? 
+                compressedData.data : 
+                JSON.stringify({ batch: paramsList })
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const contentType = response.headers.get('Content-Type');
+        let data;
+        
+        if (contentType && contentType.includes('application/json')) {
+            const responseData = await response.json();
+            if (responseData.status !== 'success') {
+                throw new Error(responseData.message || 'Błąd podczas wykonywania zapytania');
+            }
+            
+            // Decompress response data if needed
+            if (responseData.compressed) {
+                data = await DataCompressor.decompress(responseData);
+            } else {
+                data = responseData;
+            }
+        } else {
+            throw new Error('Invalid response format');
+        }
+        
+        // Cache results
+        data.results.forEach((result, index) => {
+            const cacheKey = this.getCacheKey(endpoint, paramsList[index]);
+            this.cacheResponse(cacheKey, result);
+        });
+        
+        return data.results;
+    },
+    
+    // Cache management
+    getCacheKey(endpoint, params) {
+        return `${endpoint}-${JSON.stringify(params)}`;
+    },
+    
+    getCachedResponse(cacheKey) {
+        const cached = this.responseCache.get(cacheKey);
+        if (cached && Date.now() - cached.timestamp < this.cacheTimeout) {
+            return cached.data;
+        }
+        this.responseCache.delete(cacheKey);
+        return null;
+    },
+    
+    cacheResponse(cacheKey, data) {
+        this.responseCache.set(cacheKey, {
+            data,
+            timestamp: Date.now()
+        });
+        
+        // Cleanup old cache entries
+        if (this.responseCache.size > 100) {
+            const oldestKey = this.responseCache.keys().next().value;
+            this.responseCache.delete(oldestKey);
+        }
+    },
+    
+    // Clear cache for specific endpoint or all
+    clearCache(endpoint = null) {
+        if (endpoint) {
+            for (const key of this.responseCache.keys()) {
+                if (key.startsWith(endpoint)) {
+                    this.responseCache.delete(key);
+                }
+            }
+        } else {
+            this.responseCache.clear();
+        }
+    }
+};
+
+// Update filter functions to use lazy loading
+async function filterProducts(productId) {
+    const searchInput = document.getElementById(`searchProduct${productId}`);
+    const searchText = searchInput.value.toLowerCase();
+    const categoryFilter = document.getElementById(`categoryFilter${productId}`);
+    const selectedCategory = categoryFilter.value;
+    
+    const suggestionsContainer = document.querySelector(`#mapModal${productId} .list-group`);
+    suggestionsContainer.innerHTML = '<div class="text-center p-3"><div class="spinner-border text-primary" role="status"></div></div>';
+    
+    try {
+        const suggestions = await ApiOptimizer.batchRequest(
+            '/api/produkty/sugestie',
+            { productId, search: searchText, category: selectedCategory }
+        );
+        
+        if (suggestions.length === 0) {
+            suggestionsContainer.innerHTML = '<div class="text-center p-3 text-muted">Brak sugestii</div>';
+            return;
+        }
+        
+        suggestionsContainer.innerHTML = suggestions.map(suggestion => `
+            <button type="button" 
+                    class="list-group-item list-group-item-action"
+                    onclick="mapToExisting('${productId}', '${suggestion.id}')">
+                ${suggestion.nazwa} (${suggestion.kategoria})
+                <span class="badge bg-info float-end">
+                    ${suggestion.podobienstwo}%
+                </span>
+            </button>
+        `).join('');
+    } catch (error) {
+        console.error('Error loading suggestions:', error);
+        suggestionsContainer.innerHTML = '<div class="text-center p-3 text-danger">Błąd podczas ładowania sugestii</div>';
+        showError(
+            error.message || 'Wystąpił błąd podczas ładowania sugestii',
+            error.name === 'TypeError' ? ErrorTypes.NETWORK : ErrorTypes.SERVER
+        );
+    }
+}
+
+async function filterByCategory(productId) {
+    await filterProducts(productId);
+}
+
+// Add debounce to search input
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
+}
+
+// Clear cache when leaving the page
+window.addEventListener('beforeunload', () => {
+    SuggestionCache.clearCache();
+    HistoryCache.clearCache();
+    ApiOptimizer.clearCache();
+    DataCompressor.methods = {}; // Clear compression methods
+});
+
+// Data compression system
+const DataCompressor = {
+    // Compression methods
+    methods: {
+        gzip: {
+            compress: async (data) => {
+                const blob = new Blob([JSON.stringify(data)]);
+                const compressed = await blob.arrayBuffer();
+                return compressed;
+            },
+            decompress: async (data) => {
+                const blob = new Blob([data]);
+                const text = await blob.text();
+                return JSON.parse(text);
+            }
+        },
+        deflate: {
+            compress: async (data) => {
+                const text = JSON.stringify(data);
+                const encoder = new TextEncoder();
+                const uint8Array = encoder.encode(text);
+                return uint8Array;
+            },
+            decompress: async (data) => {
+                const decoder = new TextDecoder();
+                const text = decoder.decode(data);
+                return JSON.parse(text);
+            }
+        }
+    },
+    
+    // Default compression method
+    defaultMethod: 'gzip',
+    
+    // Compression level (0-9)
+    compressionLevel: 6,
+    
+    // Minimum size to compress (bytes)
+    minSizeToCompress: 1024,
+    
+    // Compress data
+    async compress(data, method = this.defaultMethod) {
+        try {
+            const jsonString = JSON.stringify(data);
+            if (jsonString.length < this.minSizeToCompress) {
+                return {
+                    compressed: false,
+                    data: data
+                };
+            }
+            
+            const compressed = await this.methods[method].compress(data);
+            return {
+                compressed: true,
+                method: method,
+                data: compressed
+            };
+        } catch (error) {
+            console.error('Compression error:', error);
+            return {
+                compressed: false,
+                data: data
+            };
+        }
+    },
+    
+    // Decompress data
+    async decompress(data, method = this.defaultMethod) {
+        try {
+            if (!data.compressed) {
+                return data.data;
+            }
+            
+            return await this.methods[data.method].decompress(data.data);
+        } catch (error) {
+            console.error('Decompression error:', error);
+            throw new Error('Failed to decompress data');
+        }
+    }
+};
+
+// Batch category mapping system
+const BatchCategoryMapping = {
+    selectedProducts: new Set(),
+    currentCategory: '',
+    
+    init() {
+        this.selectedProducts.clear();
+        this.currentCategory = '';
+        document.getElementById('batchCategorySelect').value = '';
+        document.getElementById('batchCategorySearch').value = '';
+        document.getElementById('selectAllBatch').checked = false;
+        this.updateProductsList();
+    },
+    
+    async updateProductsList() {
+        const searchTerm = document.getElementById('batchCategorySearch').value.toLowerCase();
+        const productsList = document.getElementById('batchProductsList');
+        productsList.innerHTML = '<div class="text-center p-3"><div class="spinner-border text-primary" role="status"></div></div>';
+        
+        try {
+            const products = await ApiOptimizer.batchRequest(
+                '/api/produkty/lista',
+                { search: searchTerm }
+            );
+            
+            if (products.length === 0) {
+                productsList.innerHTML = '<div class="text-center p-3 text-muted">Brak produktów</div>';
+                return;
+            }
+            
+            productsList.innerHTML = products.map(product => `
+                <label class="list-group-item">
+                    <div class="d-flex align-items-center">
+                        <input class="form-check-input me-2" 
+                               type="checkbox" 
+                               value="${product.id}"
+                               ${this.selectedProducts.has(product.id) ? 'checked' : ''}
+                               onchange="BatchCategoryMapping.toggleProduct('${product.id}')">
+                        <div>
+                            <div>${product.nazwa}</div>
+                            <small class="text-muted">${product.kategoria || 'Brak kategorii'}</small>
+                        </div>
+                    </div>
+                </label>
+            `).join('');
+        } catch (error) {
+            console.error('Error loading products:', error);
+            productsList.innerHTML = '<div class="text-center p-3 text-danger">Błąd podczas ładowania produktów</div>';
+            showError(
+                error.message || 'Wystąpił błąd podczas ładowania produktów',
+                error.name === 'TypeError' ? ErrorTypes.NETWORK : ErrorTypes.SERVER
+            );
+        }
+    },
+    
+    toggleProduct(productId) {
+        if (this.selectedProducts.has(productId)) {
+            this.selectedProducts.delete(productId);
+        } else {
+            this.selectedProducts.add(productId);
+        }
+        document.getElementById('selectAllBatch').checked = 
+            this.selectedProducts.size === document.querySelectorAll('#batchProductsList input[type="checkbox"]').length;
+    },
+    
+    toggleSelectAll() {
+        const checkboxes = document.querySelectorAll('#batchProductsList input[type="checkbox"]');
+        const selectAll = document.getElementById('selectAllBatch').checked;
+        
+        checkboxes.forEach(checkbox => {
+            checkbox.checked = selectAll;
+            if (selectAll) {
+                this.selectedProducts.add(checkbox.value);
+            } else {
+                this.selectedProducts.delete(checkbox.value);
+            }
+        });
+    },
+    
+    async applyCategory() {
+        if (this.selectedProducts.size === 0) {
+            showError('Wybierz produkty do zmapowania', ErrorTypes.VALIDATION);
+            return;
+        }
+        
+        if (!this.currentCategory) {
+            showError('Wybierz kategorię', ErrorTypes.VALIDATION);
+            return;
+        }
+        
+        const progressBar = document.getElementById('bulkProgress');
+        const progressBarInner = progressBar.querySelector('.progress-bar');
+        progressBar.style.display = 'flex';
+        progressBarInner.style.width = '0%';
+        
+        const products = Array.from(this.selectedProducts);
+        let completed = 0;
+        let errors = [];
+        
+        try {
+            const { errors: batchErrors } = await BulkOperations.processBatch(
+                products,
+                null,
+                (completed, total) => {
+                    const progress = (completed / total) * 100;
+                    progressBarInner.style.width = `${progress}%`;
+                }
+            );
+            
+            errors = batchErrors;
+            
+            if (errors.length === 0) {
+                // Store batch operation in history
+                operationHistory.push({
+                    type: OperationTypes.BATCH_CATEGORY,
+                    products: products.map(id => ({
+                        receiptProductId: id,
+                        category: this.currentCategory,
+                        previousCategory: getCurrentCategory(id)
+                    }))
+                });
+                
+                showNotification('Kategoria została zaktualizowana dla wszystkich produktów!', 2000);
+                products.forEach(id => updateProductCategory(id, this.currentCategory));
+                updateUndoRedoButtons();
+            } else {
+                showError(
+                    `Zaktualizowano ${products.length - errors.length} z ${products.length} produktów. ${errors.length} błędów.`,
+                    ErrorTypes.VALIDATION
+                );
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            showError(
+                'Wystąpił błąd podczas aktualizacji kategorii',
+                ErrorTypes.SERVER
+            );
+        } finally {
+            setTimeout(() => {
+                progressBar.style.display = 'none';
+                progressBarInner.style.width = '0%';
+            }, 1000);
+        }
+    }
+};
+
+function toggleBatchCategoryMode() {
+    const modal = new bootstrap.Modal(document.getElementById('batchCategoryModal'));
+    BatchCategoryMapping.init();
+    modal.show();
+}
+
+function filterBatchProducts() {
+    BatchCategoryMapping.updateProductsList();
+}
+
+function toggleSelectAllBatch() {
+    BatchCategoryMapping.toggleSelectAll();
+}
+
+function applyBatchCategory() {
+    BatchCategoryMapping.currentCategory = document.getElementById('batchCategorySelect').value;
+    BatchCategoryMapping.applyCategory();
+}
+
+function getCurrentCategory(productId) {
+    const row = document.querySelector(`button[data-bs-target='#mapModal${productId}']`).closest('tr');
+    const categoryCell = row.querySelector('td:nth-child(2)');
+    return categoryCell ? categoryCell.textContent : '';
+}
+
+function updateProductCategory(productId, category) {
+    const row = document.querySelector(`button[data-bs-target='#mapModal${productId}']`).closest('tr');
+    const categoryCell = row.querySelector('td:nth-child(2)');
+    if (categoryCell) {
+        categoryCell.textContent = category;
+    }
+}
+
+// Add undo/redo support for batch category operations
+async function undoBatchCategory(operation) {
+    const progressBar = document.getElementById('bulkProgress');
+    const progressBarInner = progressBar.querySelector('.progress-bar');
+    progressBar.style.display = 'flex';
+    progressBarInner.style.width = '0%';
+    
+    const products = operation.products;
+    let completed = 0;
+    
+    try {
+        for (const product of products) {
+            await fetch(`/api/produkty/kategoria/${product.receiptProductId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': getCsrfToken()
+                },
+                body: JSON.stringify({
+                    category: product.previousCategory
+                })
+            });
+            
+            completed++;
+            const progress = (completed / products.length) * 100;
+            progressBarInner.style.width = `${progress}%`;
+            
+            updateProductCategory(product.receiptProductId, product.previousCategory);
+        }
+        
+        showNotification('Kategorie zostały przywrócone!', 2000);
+    } catch (error) {
+        console.error('Error during undo:', error);
+        showError('Wystąpił błąd podczas cofania zmian kategorii', ErrorTypes.SERVER);
+    } finally {
+        setTimeout(() => {
+            progressBar.style.display = 'none';
+            progressBarInner.style.width = '0%';
+        }, 1000);
+    }
+}
+
+async function redoBatchCategory(operation) {
+    const progressBar = document.getElementById('bulkProgress');
+    const progressBarInner = progressBar.querySelector('.progress-bar');
+    progressBar.style.display = 'flex';
+    progressBarInner.style.width = '0%';
+    
+    const products = operation.products;
+    let completed = 0;
+    
+    try {
+        for (const product of products) {
+            await fetch(`/api/produkty/kategoria/${product.receiptProductId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': getCsrfToken()
+                },
+                body: JSON.stringify({
+                    category: product.category
+                })
+            });
+            
+            completed++;
+            const progress = (completed / products.length) * 100;
+            progressBarInner.style.width = `${progress}%`;
+            
+            updateProductCategory(product.receiptProductId, product.category);
+        }
+        
+        showNotification('Kategorie zostały ponownie zastosowane!', 2000);
+    } catch (error) {
+        console.error('Error during redo:', error);
+        showError('Wystąpił błąd podczas ponownego zastosowania kategorii', ErrorTypes.SERVER);
+    } finally {
+        setTimeout(() => {
+            progressBar.style.display = 'none';
+            progressBarInner.style.width = '0%';
+        }, 1000);
     }
 }
 </script>

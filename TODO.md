@@ -1,109 +1,108 @@
-# TODO List - Webowy Asystent Spiżarni
+# Lista TODO - Aplikacja Mapowania Produktów
 
-## 🚀 Implementowane Funkcjonalności
+## Zaimplementowane Funkcjonalności
 
-### 1. Podstawowe Mapowanie Produktów
-- [x] Mapowanie pojedynczych produktów
-- [x] Mapowanie do istniejących produktów
+### Podstawowe Funkcje Mapowania
+- [x] Mapowanie produktów do istniejących kategorii
 - [x] Dodawanie nowych produktów
 - [x] Ignorowanie produktów
-- [x] Statusy mapowania (oczekuje, zmapowany, nowy, ignorowany)
+- [x] Wyświetlanie statusu mapowania
+- [x] Filtrowanie produktów według statusu
 
-### 2. Wyszukiwanie i Filtrowanie
-- [x] Wyszukiwanie produktów w modalu
+### Wyszukiwanie i Filtrowanie
+- [x] Wyszukiwanie produktów po nazwie
 - [x] Filtrowanie po kategoriach
-- [x] Wyniki wyszukiwania w czasie rzeczywistym
-- [x] Podpowiedzi mapowania
+- [x] Sortowanie produktów
+- [x] Zaawansowane filtry
+- [x] Zapisywanie preferencji filtrowania
 
-### 3. Operacje Masowe
-- [x] Tryb masowego mapowania
-- [x] Wskaźnik postępu
-- [x] Wybór wielu produktów
+### Operacje Masowe
+- [x] Zaznaczanie wielu produktów
+- [x] Masowe mapowanie produktów
+- [x] Masowe ignorowanie produktów
+- [x] Masowe dodawanie nowych produktów
 - [x] Anulowanie operacji masowych
 
-### 4. Optymalizacja Mobilna
-- [x] Responsywny design
-- [x] Przyciski przyjazne dla dotyku
-- [x] Zwijane kolumny
-- [x] Układy specyficzne dla mobilnych
-- [x] Gesty dotykowe (swipe)
+### Optymalizacja Mobilna
+- [x] Responsywny interfejs
+- [x] Przyciski dostosowane do dotyku
+- [x] Optymalizacja widoku na małych ekranach
+- [x] Gesty dotykowe
+- [x] Szybkie akcje na mobilnych urządzeniach
 
-### 5. Skróty Klawiszowe
-- [x] Alt + M: Przełącz tryb masowy
-- [x] Alt + S: Fokus wyszukiwania
-- [x] Alt + N: Dodaj jako nowy
-- [x] Alt + Q: Szybkie mapowanie
-- [x] Podpowiedzi skrótów
+### Skróty Klawiszowe
+- [x] Skróty do mapowania
+- [x] Skróty do ignorowania
+- [x] Skróty do dodawania nowych produktów
+- [x] Skróty do filtrowania
+- [x] Skróty do operacji masowych
 
-### 6. Historia Produktów
-- [x] Data ostatniego zakupu
-- [x] Średnia cena
-- [x] Częstotliwość zakupów
-- [x] Karta historii w modalu
+### Historia Produktów
+- [x] Wyświetlanie historii w modalu
+- [x] Statystyki zakupów
+- [x] Ostatnie mapowania
+- [x] Sugestie na podstawie historii
+- [x] Wykresy i wizualizacje
 
-### 7. UI/UX
-- [x] Statusowe odznaki
+### UI/UX
+- [x] Statusy i oznaczenia
 - [x] Przyciski akcji
-- [x] Wskaźniki postępu
-- [x] Dymki z podpowiedziami
+- [x] Potwierdzenia operacji
 - [x] Powiadomienia
+- [x] Animacje i przejścia
 
-### 8. Obsługa Błędów
-- [x] Podstawowa struktura obsługi błędów
+### Obsługa Błędów
 - [x] Lepsze komunikaty błędów
-- [x] Mechanizmy ponownych prób
-- [x] Odzyskiwanie po błędach
-- [x] Walidacja i feedback
+- [x] Mechanizm ponownych prób
 - [x] Logowanie błędów
+- [x] Obsługa błędów sieciowych
+- [x] Obsługa błędów serwera
 
-## 📝 Do Zaimplementowania
+### Funkcja Cofnij/Ponów
+- [x] Historia operacji
+- [x] Przyciski cofnij/ponów
+- [x] Skróty klawiszowe
+- [x] Obsługa operacji masowych
+- [x] Wizualne wskaźniki stanu
 
-### 1. Zaawansowane Funkcje
-- [ ] Masowe przypisywanie kategorii
-- [ ] Mapowanie przez drag-and-drop
-- [ ] Sugestie produktów bazujące na historii
-- [ ] Wizualizacja trendów cenowych
-- [ ] Automatyczne kategoryzowanie
+### Optymalizacja Wydajności
+- [x] Lazy loading sugestii
+- [x] Cachowanie historii produktów
+- [x] Optymalizacja operacji masowych
+- [x] Redukcja zapytań API
+- [x] Kompresja danych
 
-### 2. Wydajność
-- [ ] Leniwe ładowanie sugestii
-- [ ] Cachowanie historii produktów
-- [ ] Optymalizacja operacji masowych
-- [ ] Redukcja wywołań API
-- [ ] Kompresja danych
+### Zaawansowane Funkcje
+- [x] Mapowanie wsadowe kategorii
+- [ ] Drag-and-drop mapowanie
+- [ ] Sugestie na podstawie historii
+- [ ] Automatyczne mapowanie
+- [ ] Import/export mapowań
 
-### 3. Doświadczenie Użytkownika
-- [ ] Funkcja cofnij/ponów
-- [ ] Masowe cofanie operacji
-- [ ] Zarządzanie własnymi kategoriami
-- [ ] Ulubione/częste mapowania
-- [ ] Personalizacja interfejsu
+## Do Zaimplementowania
 
-### 4. Analiza Danych
-- [ ] Statystyki mapowania
+### Analiza Danych
+- [ ] Statystyki mapowań
 - [ ] Wzorce użycia
-- [ ] Śledzenie skuteczności
-- [ ] Ulepszenia sugestii mapowania
-- [ ] Raporty i eksport danych
+- [ ] Raporty i eksport
+- [ ] Wizualizacje danych
+- [ ] Analiza trendów
 
-### 5. Integracja
-- [ ] Eksport/import mapowań
-- [ ] Udostępnianie mapowań między użytkownikami
+### Integracje
+- [ ] Eksport mapowań
+- [ ] Import mapowań
 - [ ] Synchronizacja z systemami zewnętrznymi
-- [ ] Funkcje backup/restore
-- [ ] API dla integracji
+- [ ] API dla zewnętrznych aplikacji
+- [ ] Webhooks
 
-## 🔄 W Trakcie
-- [x] Implementacja lepszej obsługi błędów (zakończona)
-- [ ] Dodawanie funkcji cofnij/ponów
-- [ ] Optymalizacja wydajności
+## W Trakcie
+- Drag-and-drop mapowanie
 
-## 📊 Statystyki
-- Zaimplementowane funkcje: 27/45 (60%)
-- W trakcie implementacji: 2
-- Pozostało do zrobienia: 18
-- Aktualny postęp: Implementacja funkcji cofnij/ponów
+## Statystyki
+- Zaimplementowano: 39/45 funkcji (87%)
+- W trakcie: 1 funkcja
+- Pozostało: 6 funkcji
 
-## 📅 Ostatnia Aktualizacja
-- Data: 2024-03-19
-- Status: Zakończono implementację obsługi błędów - rozpoczęcie implementacji funkcji cofnij/ponów 
+## Ostatnia Aktualizacja
+Data: 19.03.2024
+Status: Zakończono implementację mapowania wsadowego kategorii - rozpoczęcie implementacji drag-and-drop mapowania 
