@@ -3,7 +3,8 @@ from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse
 from sqlmodel import Session, select
 from typing import Optional, List
-from database import get_session, SessionLocal
+from database import get_session
+from db_logger import log_to_db
 from models import LogBledow, PoziomLogu
 import json
 
@@ -12,7 +13,7 @@ templates = Jinja2Templates(directory="templates")
 
 def log_to_db(poziom: PoziomLogu, modul: str, funkcja: str, komunikat: str, szczegoly: str = None):
     """Helper function to log to database"""
-    with SessionLocal() as db:
+    with get_session() as db:
         log = LogBledow(
             poziom=poziom,
             modul_aplikacji=modul,

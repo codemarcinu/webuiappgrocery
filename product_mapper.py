@@ -3,6 +3,7 @@ import json
 from thefuzz import process
 from sqlmodel import Session, select
 from models import Produkt, StatusMapowania, LogBledow, PoziomLogu
+from db_logger import log_to_db
 from database import SessionLocal
 
 def log_to_db(poziom: PoziomLogu, modul: str, funkcja: str, komunikat: str, szczegoly: str = None):

@@ -5,7 +5,7 @@ import json
 from datetime import datetime
 from typing import Any, Dict, Optional
 from models import LogBledow, PoziomLogu
-from database import SessionLocal
+from db_logger import log_to_db
 import traceback
 import sys
 

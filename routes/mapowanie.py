@@ -1,5 +1,5 @@
 from models import LogBledow, PoziomLogu
-from database import SessionLocal
+from db_logger import log_to_db
 import json
 
 def log_to_db(poziom: PoziomLogu, modul: str, funkcja: str, komunikat: str, szczegoly: str = None):

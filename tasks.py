@@ -3,6 +3,7 @@ import multiprocessing
 multiprocessing.set_start_method('spawn', force=True)
 
 from celery import Celery, shared_task
+from db_logger import log_to_db
 from database import SessionLocal
 from models import Paragon, StatusParagonu, Produkt, KategoriaProduktu, StatusMapowania, LogBledow, PoziomLogu
 from receipt_processor import ReceiptProcessor

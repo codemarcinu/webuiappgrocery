@@ -19,6 +19,7 @@ import easyocr
 import json
 import multiprocessing
 import os
+from db_logger import log_to_db
 from database import SessionLocal
 
 # Set environment variables for CUDA

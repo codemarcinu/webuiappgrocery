@@ -4,7 +4,7 @@ from pathlib import Path
 from logging.handlers import RotatingFileHandler
 import os
 from models import LogBledow, PoziomLogu
-from database import SessionLocal
+from db_logger import log_to_db
 import json
 
 # Create logs directory if it doesn't exist

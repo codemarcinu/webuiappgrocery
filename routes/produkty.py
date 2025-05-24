@@ -1,19 +1,6 @@
 from models import LogBledow, PoziomLogu
-from database import SessionLocal
+from db_logger import log_to_db
 import json
-
-def log_to_db(poziom: PoziomLogu, modul: str, funkcja: str, komunikat: str, szczegoly: str = None):
-    """Helper function to log to database"""
-    with SessionLocal() as db:
-        log = LogBledow(
-            poziom=poziom,
-            modul_aplikacji=modul,
-            funkcja=funkcja,
-            komunikat_bledu=komunikat,
-            szczegoly_techniczne=szczegoly
-        )
-        db.add(log)
-        db.commit()
 
 @router.get("/produkty/", response_model=List[Produkt])
 async def get_products(

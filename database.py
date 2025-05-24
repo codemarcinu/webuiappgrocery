@@ -1,12 +1,11 @@
+import os
 from sqlmodel import SQLModel, Session, create_engine
 from sqlalchemy.engine import Engine
 from sqlalchemy import event
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.pool import QueuePool
-from logging_config import logger
-import os
-from contextlib import contextmanager
 from typing import Generator
+from contextlib import contextmanager
 
 # Get database URL from environment variable or use default SQLite
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./spizarnia.db")
@@ -27,9 +26,9 @@ engine = create_engine(
 def create_db_and_tables():
     try:
         SQLModel.metadata.create_all(engine)
-        logger.info("Database tables created successfully")
+        print("Database tables created successfully")
     except SQLAlchemyError as e:
-        logger.error(f"Error creating database tables: {str(e)}", exc_info=True)
+        print(f"Error creating database tables: {str(e)}", exc_info=True)
         raise
 
 @contextmanager
@@ -41,7 +40,7 @@ def get_db_session() -> Generator[Session, None, None]:
         session.commit()
     except SQLAlchemyError as e:
         session.rollback()
-        logger.error(f"Database session error: {str(e)}", exc_info=True)
+        print(f"Database session error: {str(e)}", exc_info=True)
         raise
     finally:
         session.close()

@@ -6,6 +6,7 @@ from user_activity_logger import user_activity_logger
 import aiohttp
 import asyncio
 from models import LogBledow, PoziomLogu
+from db_logger import log_to_db
 from database import SessionLocal
 import json
 
