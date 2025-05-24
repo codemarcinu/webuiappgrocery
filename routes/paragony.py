@@ -352,4 +352,9 @@ async def ignoruj_produkt(
     session.delete(produkt)
     session.commit()
     
-    return {"status": "success"} 
+    return {"status": "success"}
+
+@router.post("/przetworz/{paragon_id}")
+async def przetworz_paragon(paragon_id: int):
+    process_receipt_task.delay(paragon_id)
+    return RedirectResponse(url=f"/paragony/podglad/{paragon_id}", status_code=303) 
