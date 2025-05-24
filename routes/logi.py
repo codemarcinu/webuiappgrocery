@@ -190,5 +190,5 @@ def clear_logs(request: Request):
             db.commit()
     # Przekierowanie z komunikatem
     response = RedirectResponse(url="/logi", status_code=303)
-    response.set_cookie('flash_msg', 'Logi zostały wyczyszczone i zarchiwizowane!')
+    response.set_cookie('flash_msg', 'Logi zostaly wyczyszczone i zarchiwizowane!')
     return response 
