@@ -26,26 +26,23 @@ from sqlalchemy.orm import Session
 from sqlmodel import Session, select
 from urllib.parse import unquote, quote
 from sqlalchemy import func
+import logging
 
 from database import create_db_and_tables, SessionLocal, get_session
 from routes import paragony
 from routes import logi
-from logging_config import setup_logging, logger
 from models import Paragon, Produkt, StatusParagonu, LogBledow, PoziomLogu
 from config import get_settings
 
 settings = get_settings()
+logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Initialize logging configuration
-    setup_logging()
-    logger.info("Application started successfully")
-    
+    # logger.info("Application started successfully")
     # Initialize database
     create_db_and_tables()
     logger.info("Database initialized successfully")
-    
     yield
 
 # Create FastAPI app
