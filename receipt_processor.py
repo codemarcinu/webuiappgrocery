@@ -18,6 +18,11 @@ import tempfile
 import easyocr
 import json
 import multiprocessing
+import os
+
+# Set environment variables for CUDA
+os.environ['CUDA_VISIBLE_DEVICES'] = ''  # Disable CUDA
+os.environ['TORCH_MULTIPROCESSING_START_METHOD'] = 'spawn'
 
 # Set multiprocessing start method to 'spawn' for CUDA compatibility
 if __name__ == '__main__':
@@ -83,7 +88,7 @@ class ReceiptProcessor:
         if self._ocr_reader is None:
             logger.info("Initializing EasyOCR reader...")
             # Force CPU usage for EasyOCR
-            self._ocr_reader = easyocr.Reader(['pl'], gpu=False)
+            self._ocr_reader = easyocr.Reader(['pl'], gpu=False, download_enabled=True)
             logger.info("EasyOCR reader initialized successfully")
         return self._ocr_reader
 

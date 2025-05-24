@@ -1,3 +1,7 @@
+import multiprocessing
+# Set multiprocessing start method to 'spawn' for CUDA compatibility
+multiprocessing.set_start_method('spawn', force=True)
+
 from fastapi import FastAPI, Request, HTTPException, Depends, Form
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
