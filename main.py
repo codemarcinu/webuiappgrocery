@@ -127,7 +127,7 @@ async def root(request: Request, context: Dict[str, Any] = Depends(get_template_
         for receipt in recent_receipts:
             recent_activity.append({
                 'icon': 'receipt',
-                'text': f'Dodano paragon: {receipt.nazwa_pliku}',
+                'text': f'Dodano paragon: {receipt.nazwa_pliku_oryginalnego}',
                 'time': receipt.data_wyslania.strftime('%d.%m.%Y %H:%M')
             })
         
