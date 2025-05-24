@@ -30,33 +30,36 @@
                     <div class="mb-3">
                         <h5>Status Przetwarzania</h5>
                         <div class="d-flex align-items-center">
-                            <span class="badge {% if paragon.status_przetwarzania == 'PRZETWORZONY_OK' %}bg-success
+                            <span id="status-badge-text" class="badge {% if paragon.status_przetwarzania == 'PRZETWORZONY_OK' %}bg-success
                                              {% elif paragon.status_przetwarzania == 'PRZETWORZONY_BLAD' %}bg-danger
                                              {% elif paragon.status_przetwarzania in ['PRZETWARZANY_OCR', 'PRZETWARZANY_AI'] %}bg-warning
                                              {% else %}bg-secondary{% endif %} me-2">
                                 {{ paragon.status_przetwarzania }}
                             </span>
-                            {% if paragon.status_przetwarzania in ['PRZETWARZANY_OCR', 'PRZETWARZANY_AI'] %}
-                            <div class="spinner-border spinner-border-sm text-primary ms-2" role="status">
+                            <div id="processing-spinner" class="spinner-border spinner-border-sm text-primary ms-2" role="status" 
+                                 style="display: {% if paragon.status_przetwarzania in ['PRZETWARZANY_OCR', 'PRZETWARZANY_AI'] %}inline-block{% else %}none{% endif %};">
                                 <span class="visually-hidden">Przetwarzanie...</span>
                             </div>
-                            {% endif %}
                         </div>
                         <div class="mt-2" id="status-info">
-                            {% if paragon.status_przetwarzania == 'OCZEKUJE_NA_PODGLAD' %}
-                                Paragon oczekuje na podgląd.
-                            {% elif paragon.status_przetwarzania == 'PODGLADNIETY_OCZEKUJE_NA_PRZETWORZENIE' %}
-                                Paragon oczekuje na przetworzenie. Przetwarzanie rozpocznie się automatycznie.
-                            {% elif paragon.status_przetwarzania == 'PRZETWARZANY_OCR' %}
-                                Trwa rozpoznawanie tekstu (OCR) i analiza AI. Proszę czekać...
-                            {% elif paragon.status_przetwarzania == 'PRZETWARZANY_AI' %}
-                                Trwa analiza AI. Proszę czekać...
-                            {% elif paragon.status_przetwarzania == 'PRZETWORZONY_OK' %}
-                                Przetwarzanie zakończone sukcesem! Możesz przejrzeć wykryte produkty.
-                            {% elif paragon.status_przetwarzania == 'PRZETWORZONY_BLAD' %}
-                                Wystąpił błąd podczas przetwarzania. Możesz spróbować ponownie klikając przycisk poniżej.
+                            {% if paragon.status_szczegolowy %}
+                                {{ paragon.status_szczegolowy }}
                             {% else %}
-                                Status nieznany. Skontaktuj się z administratorem.
+                                {% if paragon.status_przetwarzania == 'OCZEKUJE_NA_PODGLAD' %}
+                                    Paragon oczekuje na podgląd.
+                                {% elif paragon.status_przetwarzania == 'PODGLADNIETY_OCZEKUJE_NA_PRZETWORZENIE' %}
+                                    Paragon oczekuje na przetworzenie. Przetwarzanie rozpocznie się automatycznie.
+                                {% elif paragon.status_przetwarzania == 'PRZETWARZANY_OCR' %}
+                                    Trwa rozpoznawanie tekstu (OCR) i analiza AI. Proszę czekać...
+                                {% elif paragon.status_przetwarzania == 'PRZETWARZANY_AI' %}
+                                    Trwa analiza AI. Proszę czekać...
+                                {% elif paragon.status_przetwarzania == 'PRZETWORZONY_OK' %}
+                                    Przetwarzanie zakończone sukcesem! Możesz przejrzeć wykryte produkty.
+                                {% elif paragon.status_przetwarzania == 'PRZETWORZONY_BLAD' %}
+                                    Wystąpił błąd podczas przetwarzania. Możesz spróbować ponownie klikając przycisk poniżej.
+                                {% else %}
+                                    Status nieznany. Skontaktuj się z administratorem.
+                                {% endif %}
                             {% endif %}
                         </div>
                     </div>
@@ -140,22 +143,78 @@
 
 {% block scripts %}
 <script>
-// Auto-refresh status for all receipts except finished/error
+function getBadgeClass(status) {
+    switch(status) {
+        case 'PRZETWORZONY_OK':
+            return 'bg-success';
+        case 'PRZETWORZONY_BLAD':
+            return 'bg-danger';
+        case 'PRZETWARZANY_OCR':
+        case 'PRZETWARZANY_AI':
+            return 'bg-warning';
+        default:
+            return 'bg-secondary';
+    }
+}
+
+function getGenericStatusMessage(status) {
+    switch(status) {
+        case 'OCZEKUJE_NA_PODGLAD':
+            return 'Paragon oczekuje na podgląd.';
+        case 'PODGLADNIETY_OCZEKUJE_NA_PRZETWORZENIE':
+            return 'Paragon oczekuje na przetworzenie. Przetwarzanie rozpocznie się automatycznie.';
+        case 'PRZETWARZANY_OCR':
+            return 'Trwa rozpoznawanie tekstu (OCR) i analiza AI. Proszę czekać...';
+        case 'PRZETWARZANY_AI':
+            return 'Trwa analiza AI. Proszę czekać...';
+        case 'PRZETWORZONY_OK':
+            return 'Przetwarzanie zakończone sukcesem! Możesz przejrzeć wykryte produkty.';
+        case 'PRZETWORZONY_BLAD':
+            return 'Wystąpił błąd podczas przetwarzania. Możesz spróbować ponownie klikając przycisk poniżej.';
+        default:
+            return 'Status nieznany. Skontaktuj się z administratorem.';
+    }
+}
+
+function updateStatusDisplay(data) {
+    // Update status badge
+    const statusBadge = document.getElementById('status-badge-text');
+    statusBadge.textContent = data.status;
+    statusBadge.className = `badge ${getBadgeClass(data.status)} me-2`;
+
+    // Update spinner visibility
+    const spinner = document.getElementById('processing-spinner');
+    spinner.style.display = ['PRZETWARZANY_OCR', 'PRZETWARZANY_AI'].includes(data.status) ? 'inline-block' : 'none';
+
+    // Update status info
+    const statusInfo = document.getElementById('status-info');
+    statusInfo.textContent = data.status_szczegolowy || getGenericStatusMessage(data.status);
+}
+
 function checkStatus() {
     fetch("{{ url_for('paragony.status_przetwarzania', paragon_id=paragon.id) }}")
         .then(response => response.json())
         .then(data => {
-            if (data.status !== "{{ paragon.status_przetwarzania }}") {
+            updateStatusDisplay(data);
+            
+            // Continue polling if still processing
+            if (['PRZETWARZANY_OCR', 'PRZETWARZANY_AI', 'PODGLADNIETY_OCZEKUJE_NA_PRZETWORZENIE', 'OCZEKUJE_NA_PODGLAD'].includes(data.status)) {
+                setTimeout(checkStatus, 2500);
+            } else if (data.status !== "{{ paragon.status_przetwarzania }}") {
+                // Reload page only when status changes to a final state
                 window.location.reload();
-            } else if (['PRZETWARZANY_OCR', 'PRZETWARZANY_AI'].includes(data.status)) {
-                setTimeout(checkStatus, 2000);
             }
         })
-        .catch(error => console.error('Error checking status:', error));
+        .catch(error => {
+            console.error('Error checking status:', error);
+            // Continue polling even on error
+            setTimeout(checkStatus, 2500);
+        });
 }
 
-if (["PRZETWARZANY_OCR", "PRZETWARZANY_AI"].includes("{{ paragon.status_przetwarzania }}")) {
-    setTimeout(checkStatus, 2000);
+// Start polling if initial status indicates processing
+if (["PRZETWARZANY_OCR", "PRZETWARZANY_AI", "PODGLADNIETY_OCZEKUJE_NA_PRZETWORZENIE", "OCZEKUJE_NA_PODGLAD"].includes("{{ paragon.status_przetwarzania }}")) {
+    setTimeout(checkStatus, 2500);
 }
 </script>
 {% endblock %} 

@@ -30,13 +30,13 @@ def process_receipt_task(self, paragon_id: int):
         
         try:
             # Process the receipt using ReceiptProcessor (now async)
-            paragon.status_szczegolowy = "Wykonywanie OCR..."
+            paragon.status_szczegolowy = "Wykonywanie OCR i ekstrakcja tekstu..."
             db.commit()
             result = asyncio.run(receipt_processor.process_receipt(Path(paragon.sciezka_pliku_na_serwerze)))
             
             # Update status to AI processing
             paragon.status_przetwarzania = StatusParagonu.PRZETWARZANY_AI
-            paragon.status_szczegolowy = "OCR zakończony, analiza AI..."
+            paragon.status_szczegolowy = "Strukturyzacja danych z OCR zakończona, przygotowywanie produktów..."
             db.commit()
             logger.info(f"OCR zakończony dla paragonu {paragon_id}, rozpoczynam analizę AI")
             
@@ -47,7 +47,7 @@ def process_receipt_task(self, paragon_id: int):
             db.commit()
             
             # Add new products from LLM result
-            paragon.status_szczegolowy = "Dodawanie produktów..."
+            paragon.status_szczegolowy = "Dodawanie wykrytych produktów do bazy danych..."
             db.commit()
             all_new_products = []
             for item_data in result.get("items", []):
@@ -83,7 +83,7 @@ def process_receipt_task(self, paragon_id: int):
             db.commit()
             
             # Call ProductMapper for mapping suggestions
-            paragon.status_szczegolowy = "Generowanie sugestii mapowania produktów..."
+            paragon.status_szczegolowy = "Generowanie sugestii mapowania produktów i kategorii..."
             db.commit()
             product_mapper = ProductMapper(session=db)
             product_mapper.process_receipt_products(all_new_products)
@@ -98,7 +98,7 @@ def process_receipt_task(self, paragon_id: int):
             
             # Update status to success
             paragon.status_przetwarzania = StatusParagonu.PRZETWORZONY_OK
-            paragon.status_szczegolowy = "Przetwarzanie zakończone pomyślnie"
+            paragon.status_szczegolowy = "Przetwarzanie zakończone pomyślnie. Wszystkie produkty zostały wykryte i skategoryzowane."
             paragon.data_przetworzenia = datetime.now()
             db.commit()
             logger.info(f"Paragon {paragon_id} przetworzony pomyślnie")
