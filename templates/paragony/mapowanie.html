@@ -7,12 +7,13 @@
     <h1>Mapowanie Produktów z Paragonu</h1>
     <p class="text-muted">Paragon z dnia: {{ paragon.data_zakupu.strftime('%Y-%m-%d') }}</p>
     
-    <div class="mb-3 d-flex gap-2">
-        <button type="button" class="btn btn-primary" onclick="toggleBulkMode()">
-            <i class="fas fa-layer-group"></i> Tryb masowego mapowania
+    <div class="mb-3 d-flex flex-wrap gap-2">
+        <button type="button" class="btn btn-primary flex-grow-1 flex-md-grow-0" onclick="toggleBulkMode()">
+            <i class="fas fa-layer-group"></i> <span class="d-none d-md-inline">Tryb masowego mapowania</span>
+            <span class="d-md-none">Masowe</span>
         </button>
         <button type="button" 
-                class="btn btn-outline-secondary" 
+                class="btn btn-outline-secondary flex-grow-1 flex-md-grow-0" 
                 data-bs-toggle="tooltip" 
                 data-bs-html="true"
                 title="<b>Skróty klawiszowe:</b><br>
@@ -20,7 +21,7 @@
                        Alt + S - Wyszukaj<br>
                        Alt + N - Dodaj jako nowy<br>
                        Alt + Q - Szybkie mapowanie">
-            <i class="fas fa-keyboard"></i> Skróty
+            <i class="fas fa-keyboard"></i> <span class="d-none d-md-inline">Skróty</span>
         </button>
         <div id="bulkProgress" class="progress flex-grow-1" style="display: none;">
             <div class="progress-bar progress-bar-striped progress-bar-animated" 
@@ -42,9 +43,9 @@
             <thead>
                 <tr>
                     <th>Nazwa produktu</th>
-                    <th>Kategoria</th>
+                    <th class="d-none d-md-table-cell">Kategoria</th>
                     <th>Cena</th>
-                    <th>Ilość</th>
+                    <th class="d-none d-md-table-cell">Ilość</th>
                     <th>Status</th>
                     <th>Akcje</th>
                 </tr>
@@ -52,10 +53,21 @@
             <tbody>
                 {% for produkt in produkty %}
                 <tr>
-                    <td>{{ produkt.nazwa }}</td>
-                    <td>{{ produkt.kategoria }}</td>
+                    <div class="swipe-hint swipe-hint-left">
+                        <i class="fas fa-times"></i> Ignoruj
+                    </div>
+                    <div class="swipe-hint swipe-hint-right">
+                        <i class="fas fa-bolt"></i> Szybkie mapowanie
+                    </div>
+                    <td>
+                        {{ produkt.nazwa }}
+                        <div class="d-md-none small text-muted">
+                            {{ produkt.kategoria }} | {{ produkt.ilosc_na_paragonie }} szt.
+                        </div>
+                    </td>
+                    <td class="d-none d-md-table-cell">{{ produkt.kategoria }}</td>
                     <td>{{ "%.2f"|format(produkt.cena) }} zł</td>
-                    <td>{{ produkt.ilosc_na_paragonie }}</td>
+                    <td class="d-none d-md-table-cell">{{ produkt.ilosc_na_paragonie }}</td>
                     <td>
                         {% if produkt.status_mapowania == 'oczekuje' %}
                             <span class="badge bg-warning">Oczekuje</span>
@@ -73,18 +85,18 @@
                                     class="btn btn-sm btn-success map-btn" 
                                     onclick="quickMap({{ produkt.id }})"
                                     title="Szybkie mapowanie do najbardziej prawdopodobnego produktu">
-                                <i class="fas fa-bolt"></i> Szybkie
+                                <i class="fas fa-bolt"></i>
                             </button>
-                            <button type="button" 
+                            <button type="button"
                                     class="btn btn-sm btn-primary map-btn" 
                                     data-bs-toggle="modal" 
                                     data-bs-target="#mapModal{{ produkt.id }}">
-                                <i class="fas fa-link"></i> Mapuj
+                                <i class="fas fa-link"></i>
                             </button>
                             <button type="button" 
                                     class="btn btn-sm btn-danger"
                                     onclick="ignoreProduct({{ produkt.id }})">
-                                <i class="fas fa-times"></i> Ignoruj
+                                <i class="fas fa-times"></i>
                             </button>
                         </div>
                     </td>
@@ -121,6 +133,25 @@
                                         <option value="Inne">Inne</option>
                                     </select>
                                 </div>
+
+                                <div class="card mb-3">
+                                    <div class="card-body">
+                                        <h6 class="card-title">Historia produktu</h6>
+                                        <div class="d-flex justify-content-between align-items-center mb-2">
+                                            <small class="text-muted">Ostatnio kupowany:</small>
+                                            <span id="lastPurchase{{ produkt.id }}">-</span>
+                                        </div>
+                                        <div class="d-flex justify-content-between align-items-center mb-2">
+                                            <small class="text-muted">Średnia cena:</small>
+                                            <span id="avgPrice{{ produkt.id }}">-</span>
+                                        </div>
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <small class="text-muted">Częstotliwość zakupów:</small>
+                                            <span id="purchaseFreq{{ produkt.id }}">-</span>
+                                        </div>
+                                    </div>
+                                </div>
+
                                 {% if produkt.sugestie_mapowania %}
                                 <h6>Sugerowane produkty:</h6>
                                 <div class="list-group mb-3">
@@ -159,6 +190,41 @@
         </a>
     </div>
 </div>
+
+<style>
+.swipe-hint {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    opacity: 0;
+    transition: opacity 0.3s;
+    pointer-events: none;
+}
+
+.swipe-hint-left {
+    left: 10px;
+    color: #dc3545;
+}
+
+.swipe-hint-right {
+    right: 10px;
+    color: #198754;
+}
+
+tr {
+    position: relative;
+}
+
+tr.swiping .swipe-hint {
+    opacity: 1;
+}
+
+@media (hover: none) {
+    .swipe-hint {
+        display: block;
+    }
+}
+</style>
 {% endblock %}
 
 {% block scripts %}
@@ -453,6 +519,88 @@ function quickMap(productId) {
         }
     } else {
         showNotification('Brak sugestii mapowania dla tego produktu', 3000);
+    }
+}
+
+function loadProductHistory(productId) {
+    fetch(`/api/produkty/historia/${productId}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                const history = data.history;
+                document.getElementById(`lastPurchase${productId}`).textContent = 
+                    history.last_purchase ? new Date(history.last_purchase).toLocaleDateString() : 'Nigdy';
+                document.getElementById(`avgPrice${productId}`).textContent = 
+                    history.avg_price ? `${history.avg_price.toFixed(2)} zł` : '-';
+                document.getElementById(`purchaseFreq${productId}`).textContent = 
+                    history.purchase_frequency ? `${history.purchase_frequency} dni` : '-';
+            }
+        })
+        .catch(error => {
+            console.error('Error loading product history:', error);
+        });
+}
+
+// Add event listener for modal show
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('[data-bs-toggle="modal"]').forEach(button => {
+        button.addEventListener('click', function() {
+            const productId = this.getAttribute('data-bs-target').replace('#mapModal', '');
+            setTimeout(() => loadProductHistory(productId), 100);
+        });
+    });
+});
+
+// Add touch swipe functionality
+let touchStartX = 0;
+let touchEndX = 0;
+let isSwiping = false;
+
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('tbody tr').forEach(row => {
+        row.addEventListener('touchstart', e => {
+            touchStartX = e.changedTouches[0].screenX;
+            isSwiping = true;
+            row.classList.add('swiping');
+        }, false);
+        
+        row.addEventListener('touchmove', e => {
+            if (isSwiping) {
+                const currentX = e.changedTouches[0].screenX;
+                const swipeDistance = currentX - touchStartX;
+                row.style.transform = `translateX(${swipeDistance}px)`;
+            }
+        }, false);
+        
+        row.addEventListener('touchend', e => {
+            touchEndX = e.changedTouches[0].screenX;
+            isSwiping = false;
+            row.classList.remove('swiping');
+            row.style.transform = '';
+            handleSwipe(row);
+        }, false);
+        
+        row.addEventListener('touchcancel', () => {
+            isSwiping = false;
+            row.classList.remove('swiping');
+            row.style.transform = '';
+        }, false);
+    });
+});
+
+function handleSwipe(row) {
+    const swipeDistance = touchEndX - touchStartX;
+    const productId = row.querySelector('button[data-bs-target]').getAttribute('data-bs-target').replace('#mapModal', '');
+    
+    // Swipe right for quick map
+    if (swipeDistance > 100) {
+        quickMap(productId);
+    }
+    // Swipe left for ignore
+    else if (swipeDistance < -100) {
+        if (confirm('Czy na pewno chcesz zignorować ten produkt?')) {
+            ignoreProduct(productId);
+        }
     }
 }
 </script>
