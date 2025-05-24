@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Request, HTTPException
+from fastapi import FastAPI, Request, HTTPException, Depends
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
@@ -8,7 +8,7 @@ import uvicorn
 from pathlib import Path
 from fastapi.responses import HTMLResponse, RedirectResponse
 from starlette.responses import Response
-from typing import Optional
+from typing import Optional, Dict, Any
 import os
 from contextlib import asynccontextmanager
 import json
@@ -73,27 +73,38 @@ def from_json(value):
 
 templates.env.filters["from_json"] = from_json
 
+# Template context dependency
+async def get_template_context(request: Request) -> Dict[str, Any]:
+    return {
+        "request": request,
+        "today": datetime.now().strftime('%Y-%m-%d')
+    }
+
 # Include routers
 app.include_router(paragony.router)
 
 @app.get("/")
-async def root(request: Request):
+async def root(request: Request, context: Dict[str, Any] = Depends(get_template_context)):
     """Root endpoint - shows list of receipts"""
     db = SessionLocal()
     try:
         paragony = db.query(Paragon).order_by(Paragon.data_wyslania.desc()).all()
         return templates.TemplateResponse(
             "paragony/lista.html",
-            {
-                "request": request,
-                "paragony": paragony
-            }
+            {**context, "paragony": paragony}
         )
     finally:
         db.close()
 
 @app.get("/spizarnia", response_class=HTMLResponse)
-async def spizarnia(request: Request, nazwa: str = '', kategoria: str = '', data_waznosci: str = '', msg: Optional[str] = None):
+async def spizarnia(
+    request: Request, 
+    context: Dict[str, Any] = Depends(get_template_context),
+    msg: Optional[str] = None,
+    nazwa: str = '', 
+    kategoria: str = '', 
+    data_waznosci: str = ''
+):
     db = SessionLocal()
     try:
         query = db.query(Produkt)
@@ -109,7 +120,15 @@ async def spizarnia(request: Request, nazwa: str = '', kategoria: str = '', data
         flash_msg = request.cookies.get('flash_msg')
         response = templates.TemplateResponse(
             "spizarnia.html",
-            {"request": request, "produkty": produkty, "kategorie": kategorie, "f_nazwa": nazwa, "f_kategoria": kategoria, "f_data_waznosci": data_waznosci, "flash_msg": flash_msg}
+            {
+                **context,
+                "produkty": produkty,
+                "kategorie": kategorie,
+                "f_nazwa": nazwa,
+                "f_kategoria": kategoria,
+                "f_data_waznosci": data_waznosci,
+                "flash_msg": flash_msg
+            }
         )
         # Skasuj flash message po odczytaniu
         if flash_msg:
@@ -119,14 +138,24 @@ async def spizarnia(request: Request, nazwa: str = '', kategoria: str = '', data
         db.close()
 
 @app.get("/spizarnia/edytuj/{produkt_id}", response_class=HTMLResponse)
-async def edytuj_produkt_get(request: Request, produkt_id: int):
+async def edytuj_produkt_get(
+    request: Request,
+    context: Dict[str, Any] = Depends(get_template_context),
+    produkt_id: int
+):
     db = SessionLocal()
     try:
         produkt = db.query(Produkt).get(produkt_id)
         if not produkt:
-            return templates.TemplateResponse("spizarnia.html", {"request": request, "produkty": db.query(Produkt).all(), "error": "Produkt nie znaleziony"})
+            return templates.TemplateResponse(
+                "spizarnia.html",
+                {**context, "produkty": db.query(Produkt).all(), "error": "Produkt nie znaleziony"}
+            )
         kategorie = ["Nabiał", "Pieczywo", "Mięso", "Warzywa", "Owoce", "Słodycze", "Napoje", "Inne"]
-        return templates.TemplateResponse("edytuj_produkt.html", {"request": request, "produkt": produkt, "kategorie": kategorie})
+        return templates.TemplateResponse(
+            "edytuj_produkt.html",
+            {**context, "produkt": produkt, "kategorie": kategorie}
+        )
     finally:
         db.close()
 

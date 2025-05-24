@@ -22,6 +22,12 @@ class PoziomLogu(str, Enum):
 class KategoriaProduktu(str, Enum):
     SPOZYWCZE = "Spożywcze"
     CHEMIA = "Chemia"
+    KOSMETYKI = "Kosmetyki"
+    NAPOJE = "Napoje"
+    SLODYCZE = "Słodycze"
+    PIECZYWO = "Pieczywo"
+    WARZYWA = "Warzywa"
+    OWOCE = "Owoce"
     INNE = "Inne"
 
 class StatusMapowania(str, Enum):
