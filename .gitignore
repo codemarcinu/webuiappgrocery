@@ -45,6 +45,7 @@ logs/
 
 # Uploads
 uploads/
+uploads/*
 
 # Celery
 celerybeat-schedule
@@ -56,4 +57,8 @@ htmlcov/
 
 # Misc
 .DS_Store
-Thumbs.db 
+Thumbs.db
+
+# Large files
+apka.txt
+*.zip 
