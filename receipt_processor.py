@@ -105,9 +105,11 @@ class ReceiptProcessor:
             # Create upload directory if it doesn't exist
             upload_dir.mkdir(parents=True, exist_ok=True)
             
-            # Generate unique filename
-            content = await file.read(2048)
-            await file.seek(0)
+            # Read file content once
+            content = await file.read()
+            await file.seek(0)  # Reset file pointer
+            
+            # Get MIME type
             mime_type = magic.from_buffer(content, mime=True)
             file_extension = self.allowed_mime_types[mime_type]
             

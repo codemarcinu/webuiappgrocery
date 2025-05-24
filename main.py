@@ -30,6 +30,11 @@ async def lifespan(app: FastAPI):
     # Initialize logging configuration
     setup_logging()
     logger.info("Application started successfully")
+    
+    # Initialize database
+    create_db_and_tables()
+    logger.info("Database initialized successfully")
+    
     yield
 
 # Create FastAPI app
@@ -140,8 +145,8 @@ async def spizarnia(
 @app.get("/spizarnia/edytuj/{produkt_id}", response_class=HTMLResponse)
 async def edytuj_produkt_get(
     request: Request,
-    context: Dict[str, Any] = Depends(get_template_context),
-    produkt_id: int
+    produkt_id: int,
+    context: Dict[str, Any] = Depends(get_template_context)
 ):
     db = SessionLocal()
     try:
@@ -241,6 +246,28 @@ async def dodaj_do_spizarni(request: Request, paragon_id: int):
         return response
     finally:
         db.close()
+
+@app.get("/sugestie", response_class=HTMLResponse)
+async def sugestie(
+    request: Request,
+    context: Dict[str, Any] = Depends(get_template_context)
+):
+    """Show suggestions page"""
+    return templates.TemplateResponse(
+        "sugestie.html",
+        {**context}
+    )
+
+@app.get("/statystyki", response_class=HTMLResponse)
+async def statystyki(
+    request: Request,
+    context: Dict[str, Any] = Depends(get_template_context)
+):
+    """Show statistics page"""
+    return templates.TemplateResponse(
+        "statystyki.html",
+        {**context}
+    )
 
 if __name__ == "__main__":
     uvicorn.run(
