@@ -24,6 +24,7 @@ import os
 from db_logger import log_to_db
 from database import SessionLocal
 import pytesseract
+import re
 
 # Set environment variables for CUDA
 os.environ['CUDA_VISIBLE_DEVICES'] = ''  # Disable CUDA
@@ -218,15 +219,32 @@ class ReceiptProcessor:
             )
 
     def _extract_text_from_image(self, image_path: Path) -> str:
-        """
-        Extract text from image using pytesseract
-        """
+        """Extract text from image using pytesseract"""
         try:
+            # Check if file exists
+            if not image_path.exists():
+                logger.error(f"Image file not found: {image_path}")
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Image file not found: {image_path}"
+                )
+            
+            # Check if file has appropriate size
+            if image_path.stat().st_size == 0:
+                logger.error(f"Image file is empty: {image_path}")
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Image file is empty: {image_path}"
+                )
+            
             logger.info(f"Starting OCR for image: {image_path}")
             text = pytesseract.image_to_string(Image.open(str(image_path)), lang='pol')
             logger.info(f"OCR completed successfully for {image_path}")
             logger.debug(f"Extracted text:\n{text}")
             return text
+
+        except HTTPException:
+            raise
         except Exception as e:
             logger.error(f"Error during OCR for image {image_path}: {str(e)}", exc_info=True)
             raise HTTPException(
@@ -334,39 +352,49 @@ class ReceiptProcessor:
     def _get_receipt_prompt_for_text_input(self, receipt_text: str) -> str:
         """Get the prompt for receipt processing with text input"""
         return f"""
-Przeanalizuj poniższy tekst z paragonu sklepowego i wyekstrahuj informacje w formacie JSON. Odpowiedź musi ściśle przestrzegać tej struktury:
+Przeanalizuj tekst z paragonu i zwróć dane w formacie tool_call.
+
 {{
-    "store_name": "Nazwa sklepu (wymagane, niepusty ciąg znaków)",
-    "date": "Data zakupu w formacie YYYY-MM-DD (wymagane)",
-    "total_amount": "Całkowita zapłacona kwota (wymagane, liczba dodatnia)",
-    "items": [
+  "name": "parse_cart",
+  "arguments": {{
+    "cart": {{
+      "store_name": "Nazwa sklepu",
+      "date": "YYYY-MM-DD",
+      "total_amount": kwota_liczba,
+      "items": [
         {{
-            "name": "Nazwa produktu (wymagane, niepusty ciąg znaków)",
-            "quantity": "Ilość (wymagane, liczba dodatnia, domyślnie 1 jeśli nie określono inaczej)",
-            "price": "Cena za jednostkę (wymagane, liczba dodatnia)",
-            "total": "Całkowita cena za ten produkt (wymagane, liczba dodatnia)",
-            "category": "Sugerowana kategoria (opcjonalnie, np. Spożywcze, Chemia)"
+          "name": "Nazwa produktu",
+          "quantity": liczba,
+          "price": liczba,
+          "total": liczba,
+          "category": "Kategoria"
         }}
-    ],
-    "tax_id": "NIP sklepu jeśli widoczny (opcjonalnie)",
-    "payment_method": "Użyta metoda płatności (opcjonalnie)"
+      ],
+      "tax_id": "NIP",
+      "payment_method": "Metoda płatności"
+    }}
+  }}
 }}
 
-Ważne zasady walidacji:
-1. Wszystkie wartości numeryczne (total_amount, quantity, price, total) muszą być liczbami dodatnimi.
-2. Data musi być w formacie YYYY-MM-DD.
-3. Tablica 'items' musi zawierać przynajmniej jeden produkt.
-4. Wszystkie wymagane pola muszą być obecne i niepuste.
-5. Pola opcjonalne (tax_id, payment_method, category) mogą zostać pominięte, jeśli nie znaleziono.
-6. Jeśli ilość (quantity) nie jest jawnie podana dla produktu, przyjmij wartość 1.
+WAŻNE:
+- Wszystkie wartości numeryczne jako liczby (bez cudzysłowów)
+- Data w formacie YYYY-MM-DD
+- Minimum jeden produkt w items
+- Poprawny JSON (sprawdź przecinki)
 
-Oto tekst z paragonu do analizy:
---- POCZĄTEK TEKSTU Z PARAGONU ---
+Tekst paragonu:
 {receipt_text}
---- KONIEC TEKSTU Z PARAGONU ---
-
-Zwróć tylko i wyłącznie kompletny obiekt JSON, bez żadnych dodatkowych komentarzy przed lub po nim.
 """
+
+    def _fix_json_syntax(self, json_text: str) -> str:
+        """Fix basic JSON syntax errors"""
+        # Remove extra commas before }
+        json_text = re.sub(r',\s*}', '}', json_text)
+        # Remove extra commas before ]
+        json_text = re.sub(r',\s*]', ']', json_text)
+        # Fix single quotes to double quotes
+        json_text = re.sub(r"'([^']*)':", r'"\1":', json_text)
+        return json_text
 
     def _parse_ollama_response(self, response: Any) -> Dict[str, Any]:
         """Parse Ollama's response into structured data"""
@@ -374,27 +402,65 @@ Zwróć tylko i wyłącznie kompletny obiekt JSON, bez żadnych dodatkowych kome
             # Handle dictionary response from Ollama
             if isinstance(response, dict):
                 if 'response' in response:
-                    response = response['response']
+                    response_text = response['response']
                 else:
                     raise ValueError("Invalid Ollama response format: missing 'response' field")
+            else:
+                response_text = str(response)
 
-            # Convert to string if not already
-            if not isinstance(response, str):
-                response = str(response)
+            logger.debug(f"Processing response text: {response_text[:200]}...")
 
-            # Remove markdown code block if present
-            if response.strip().startswith("```json"):
-                response = response.strip()[7:-3].strip()
-            elif response.strip().startswith("```"):
-                response = response.strip()[3:-3].strip()
-
-            # Parse JSON
-            data = json.loads(response)
+            # Parse tool_call format
+            tool_call_pattern = r'\s*({.*?})\s*'
+            tool_call_match = re.search(tool_call_pattern, response_text, re.DOTALL)
             
+            if tool_call_match:
+                tool_call_json = tool_call_match.group(1)
+                logger.debug(f"Extracted tool_call JSON: {tool_call_json[:300]}...")
+                
+                try:
+                    # Try to fix basic JSON errors
+                    tool_call_json = self._fix_json_syntax(tool_call_json)
+                    tool_call_data = json.loads(tool_call_json)
+                    
+                    if 'name' in tool_call_data and 'arguments' in tool_call_data:
+                        arguments = tool_call_data['arguments']
+                        
+                        # Different argument formats
+                        if 'cart' in arguments:
+                            cart_data = arguments['cart']
+                            if isinstance(cart_data, str):
+                                data = json.loads(cart_data)
+                            else:
+                                data = cart_data
+                        else:
+                            # Fallback - use arguments directly
+                            data = arguments
+                    else:
+                        data = tool_call_data
+                    
+                except json.JSONDecodeError as e:
+                    logger.error(f"Failed to parse tool_call JSON: {e}")
+                    logger.error(f"Problematic JSON: {tool_call_json}")
+                    raise ValueError(f"Invalid JSON in tool_call: {e}")
+            else:
+                # Fallback: try to parse as regular JSON
+                clean_text = response_text.strip()
+                if clean_text.startswith("```json"):
+                    clean_text = clean_text[7:-3].strip()
+                elif clean_text.startswith("```"):
+                    clean_text = clean_text[3:-3].strip()
+                
+                try:
+                    data = json.loads(clean_text)
+                except json.JSONDecodeError as e:
+                    logger.error(f"Failed to parse JSON response: {e}\nResponse: {response_text}")
+                    raise ValueError(f"Invalid JSON response: {e}")
+
             # Validate using Pydantic models
             validated_receipt = Receipt.model_validate(data)
             return validated_receipt.model_dump()
-            
+
         except json.JSONDecodeError as e:
             logger.error(f"Invalid JSON response from Ollama: {str(e)}\nResponse: {response}", exc_info=True)
             raise ValueError(f"Invalid JSON response from Ollama: {e}")
