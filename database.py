@@ -6,6 +6,9 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.pool import QueuePool
 from typing import Generator
 from contextlib import contextmanager
+import logging
+
+logger = logging.getLogger(__name__)
 
 # Get database URL from environment variable or use default SQLite
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./spizarnia.db")
@@ -24,11 +27,17 @@ engine = create_engine(
 
 # Create all tables
 def create_db_and_tables():
+    """Create database tables in the correct order"""
     try:
+        # First create the LogBledow table since it's needed for logging
+        from models import LogBledow
+        SQLModel.metadata.create_all(engine, tables=[LogBledow.__table__])
+        
+        # Then create all other tables
         SQLModel.metadata.create_all(engine)
-        print("Database tables created successfully")
+        logger.info("Database tables created successfully")
     except SQLAlchemyError as e:
-        print(f"Error creating database tables: {str(e)}", exc_info=True)
+        logger.error(f"Error creating database tables: {str(e)}", exc_info=True)
         raise
 
 @contextmanager
@@ -40,7 +49,7 @@ def get_db_session() -> Generator[Session, None, None]:
         session.commit()
     except SQLAlchemyError as e:
         session.rollback()
-        print(f"Database session error: {str(e)}", exc_info=True)
+        logger.error(f"Database session error: {str(e)}", exc_info=True)
         raise
     finally:
         session.close()

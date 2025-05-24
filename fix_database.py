@@ -6,6 +6,7 @@ import sqlite3
 from alembic.config import Config
 from alembic import command
 import shutil
+import argparse
 
 def reset_database():
     """Reset the database by removing it and letting it be recreated"""
@@ -25,6 +26,10 @@ def apply_migrations():
         sys.exit(1)
 
 def main():
+    parser = argparse.ArgumentParser(description='Database Fix Tool')
+    parser.add_argument('--force', action='store_true', help='Skip confirmation prompts')
+    args = parser.parse_args()
+
     print("Database Fix Tool")
     print("1. Reset database (delete and recreate)")
     print("2. Apply migrations (keep existing data)")
@@ -32,7 +37,7 @@ def main():
     choice = input("Choose an option (1/2): ").strip()
     
     if choice == "1":
-        if input("This will delete all data. Are you sure? (y/N): ").lower() == 'y':
+        if args.force or input("This will delete all data. Are you sure? (y/N): ").lower() == 'y':
             reset_database()
         else:
             print("Operation cancelled.")

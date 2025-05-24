@@ -9,6 +9,9 @@ from models import LogBledow, PoziomLogu
 from db_logger import log_to_db
 from database import SessionLocal
 import json
+import os
+import httpx
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +30,58 @@ class OllamaTimeoutError(OllamaError):
 class OllamaModelError(OllamaError):
     """Exception raised when there are issues with the Ollama model"""
     pass
+
+class OllamaClient:
+    def __init__(self):
+        self.settings = get_settings()
+        self.base_url = self.settings.OLLAMA_API_URL
+        self.model = self.settings.OLLAMA_MODEL
+        self.timeout = 120  # Increased timeout to 120 seconds
+        self.client = httpx.AsyncClient(
+            base_url=self.base_url,
+            timeout=self.timeout,
+            verify=False  # Disable SSL verification for local development
+        )
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        await self.client.aclose()
+
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=4, max=10),
+        retry=retry_if_exception_type((OllamaConnectionError, OllamaTimeoutError))
+    )
+    async def generate(self, prompt: str, system: Optional[str] = None) -> Dict[str, Any]:
+        """Generate text using Ollama model"""
+        try:
+            payload = {
+                "model": self.model,
+                "prompt": prompt,
+                "stream": False
+            }
+            if system:
+                payload["system"] = system
+
+            response = await self.client.post("/api/generate", json=payload)
+            response.raise_for_status()
+            return response.json()
+        except httpx.TimeoutException as e:
+            logger.error(f"Timeout while generating text: {str(e)}")
+            raise OllamaTimeoutError(f"Request timed out after {self.timeout} seconds")
+        except httpx.RequestError as e:
+            logger.error(f"Connection error while generating text: {str(e)}")
+            raise OllamaConnectionError(f"Failed to connect to Ollama: {str(e)}")
+        except httpx.HTTPStatusError as e:
+            logger.error(f"HTTP error while generating text: {str(e)}")
+            if e.response.status_code == 404:
+                raise OllamaModelError(f"Model {self.model} not found")
+            raise OllamaError(f"HTTP error: {str(e)}")
+        except Exception as e:
+            logger.error(f"Unexpected error while generating text: {str(e)}")
+            raise OllamaError(f"Unexpected error: {str(e)}")
 
 async def verify_ollama_connection() -> bool:
     """
@@ -93,7 +148,12 @@ def log_to_db(poziom: PoziomLogu, modul: str, funkcja: str, komunikat: str, szcz
         db.add(log)
         db.commit()
 
-async def ollama_generate(
+async def ollama_generate(prompt: str, system: Optional[str] = None) -> Dict[str, Any]:
+    """Helper function to generate text using Ollama"""
+    async with OllamaClient() as client:
+        return await client.generate(prompt, system)
+
+async def ollama_generate_old(
     prompt: str,
     system: Optional[str] = None,
     stream: bool = False,

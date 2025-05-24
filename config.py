@@ -3,12 +3,18 @@ from typing import List
 import os
 import secrets
 from functools import lru_cache
-from db_logger import log_to_db
-from models import LogBledow, PoziomLogu
 import json
-from database import create_db_and_tables
+import logging
 
-# Create database tables before any logging
+# Set up logging first
+logger = logging.getLogger(__name__)
+
+# Import database and models after logging is set up
+from database import create_db_and_tables
+from models import LogBledow, PoziomLogu
+from db_logger import log_to_db
+
+# Create database tables after logging is set up
 create_db_and_tables()
 
 class Settings(BaseSettings):
@@ -93,27 +99,5 @@ class Settings(BaseSettings):
 
 @lru_cache()
 def get_settings() -> Settings:
-    """Get application settings with caching"""
-    try:
-        settings = Settings()
-        log_to_db(
-            PoziomLogu.INFO,
-            "config",
-            "get_settings",
-            "Pobieranie konfiguracji aplikacji",
-            json.dumps({"status": "started"})
-        )
-        return settings
-    except Exception as e:
-        log_to_db(
-            PoziomLogu.ERROR,
-            "config",
-            "get_settings",
-            "Błąd pobierania konfiguracji aplikacji",
-            json.dumps({
-                "error_type": type(e).__name__,
-                "error_message": str(e),
-                "traceback": str(e.__traceback__)
-            })
-        )
-        raise 
+    """Get application settings"""
+    return Settings() 
