@@ -5,6 +5,7 @@ from enum import Enum
 from pydantic import validator, constr
 from decimal import Decimal
 from sqlalchemy import Column, ForeignKey, Integer
+import pytz
 
 class StatusParagonu(str, Enum):
     OCZEKUJE_NA_PODGLAD = "OCZEKUJE_NA_PODGLAD"
@@ -110,7 +111,7 @@ class Paragon(SQLModel, table=True):
 
 class LogBledow(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
-    timestamp: datetime = Field(default_factory=datetime.utcnow, index=True)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(pytz.timezone('Europe/Warsaw')), index=True)
     poziom: PoziomLogu
     modul_aplikacji: constr(min_length=1, max_length=100)
     funkcja: constr(min_length=1, max_length=100)

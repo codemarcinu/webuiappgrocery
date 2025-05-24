@@ -89,6 +89,19 @@ def log_to_db(poziom: PoziomLogu, modul: str, funkcja: str, komunikat: str, szcz
 
 class ReceiptProcessor:
     def __init__(self):
+        # Set multiprocessing start method to spawn
+        import multiprocessing
+        multiprocessing.set_start_method('spawn', force=True)
+        
+        # Initialize EasyOCR with CPU if CUDA is not available
+        import torch
+        self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        self.reader = easyocr.Reader(['pl'], gpu=self.device == 'cuda')
+        
+        # Set environment variables for CUDA
+        os.environ['CUDA_VISIBLE_DEVICES'] = '' if self.device == 'cpu' else '0'
+        os.environ['TORCH_MULTIPROCESSING_START_METHOD'] = 'spawn'
+        
         self.allowed_mime_types = {
             'image/jpeg': '.jpg',
             'image/png': '.png',
@@ -96,17 +109,6 @@ class ReceiptProcessor:
             'application/pdf': '.pdf'  # Add PDF support
         }
         self.max_file_size = settings.MAX_CONTENT_LENGTH
-        self._ocr_reader = None
-        self.initialize_engines()
-
-    @property
-    def ocr_reader(self):
-        if self._ocr_reader is None:
-            logger.info("Initializing EasyOCR reader...")
-            # Force CPU usage for EasyOCR
-            self._ocr_reader = easyocr.Reader(['pl'], gpu=False, download_enabled=True)
-            logger.info("EasyOCR reader initialized successfully")
-        return self._ocr_reader
 
     async def validate_file(self, file: UploadFile) -> None:
         """Validate uploaded file"""
@@ -227,7 +229,7 @@ class ReceiptProcessor:
         """
         try:
             logger.info(f"Starting OCR for image: {image_path}")
-            result = self.ocr_reader.readtext(str(image_path), detail=0, paragraph=True)
+            result = self.reader.readtext(str(image_path), detail=0, paragraph=True)
             extracted_text = "\n".join(result)
             logger.info(f"OCR completed successfully for {image_path}")
             logger.debug(f"Extracted text:\n{extracted_text}")

@@ -1,12 +1,14 @@
 from fastapi import APIRouter, Request, Query, Depends, HTTPException
 from fastapi.templating import Jinja2Templates
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlmodel import Session, select
 from typing import Optional, List
 from database import get_session
 from db_logger import log_to_db
 from models import LogBledow, PoziomLogu
 import json
+from datetime import datetime
+from pathlib import Path
 
 router = APIRouter(prefix="/logi", tags=["logi"])
 templates = Jinja2Templates(directory="templates")
@@ -161,4 +163,32 @@ async def get_log(
                 "traceback": str(e.__traceback__)
             })
         )
-        raise 
+        raise
+
+@router.post("/clear")
+def clear_logs(request: Request):
+    with get_session() as db:
+        logs = db.query(LogBledow).order_by(LogBledow.timestamp.asc()).all()
+        if logs:
+            # Archiwizacja do pliku
+            archive_dir = Path("logs")
+            archive_dir.mkdir(exist_ok=True)
+            archive_file = archive_dir / f"logs_archive_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+            with open(archive_file, "w", encoding="utf-8") as f:
+                json.dump([
+                    {
+                        "timestamp": log.timestamp.isoformat(),
+                        "poziom": log.poziom,
+                        "modul_aplikacji": log.modul_aplikacji,
+                        "funkcja": log.funkcja,
+                        "komunikat_bledu": log.komunikat_bledu,
+                        "szczegoly_techniczne": log.szczegoly_techniczne
+                    } for log in logs
+                ], f, ensure_ascii=False, indent=2)
+            # Usuń logi z bazy
+            db.query(LogBledow).delete()
+            db.commit()
+    # Przekierowanie z komunikatem
+    response = RedirectResponse(url="/logi", status_code=303)
+    response.set_cookie('flash_msg', 'Logi zostały wyczyszczone i zarchiwizowane!')
+    return response 
