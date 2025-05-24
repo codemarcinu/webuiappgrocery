@@ -93,13 +93,12 @@ class ReceiptProcessor:
         import multiprocessing
         multiprocessing.set_start_method('spawn', force=True)
         
-        # Initialize EasyOCR with CPU if CUDA is not available
-        import torch
-        self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
-        self.reader = easyocr.Reader(['pl'], gpu=self.device == 'cuda')
+        # Initialize EasyOCR with CPU only
+        self.device = 'cpu'  # Force CPU usage
+        self.reader = easyocr.Reader(['pl'], gpu=False)  # Force CPU usage
         
         # Set environment variables for CUDA
-        os.environ['CUDA_VISIBLE_DEVICES'] = '' if self.device == 'cpu' else '0'
+        os.environ['CUDA_VISIBLE_DEVICES'] = ''  # Disable CUDA
         os.environ['TORCH_MULTIPROCESSING_START_METHOD'] = 'spawn'
         
         self.allowed_mime_types = {
