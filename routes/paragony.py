@@ -193,11 +193,15 @@ async def podglad_paragonu(request: Request, paragon_id: int):
             paragon.status_przetwarzania = StatusParagonu.PODGLADNIETY_OCZEKUJE_NA_PRZETWORZENIE
             db.commit()
         
+        # Extract just the filename for the URL
+        actual_filename = Path(paragon.sciezka_pliku_na_serwerze).name
+        
         return templates.TemplateResponse(
             "paragony/podglad.html",
             {
                 "request": request,
-                "paragon": paragon
+                "paragon": paragon,
+                "actual_filename": actual_filename
             }
         )
 
