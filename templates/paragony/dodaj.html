@@ -68,14 +68,14 @@
 function validateFile(input) {
     const file = input.files[0];
     const maxSize = 16 * 1024 * 1024; // 16MB
-    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif'];
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'application/pdf'];
     
     if (file) {
         if (file.size > maxSize) {
             input.setCustomValidity('Plik jest za duży. Maksymalny rozmiar to 16MB.');
             input.value = '';
         } else if (!allowedTypes.includes(file.type)) {
-            input.setCustomValidity('Niedozwolony format pliku. Dozwolone formaty: JPG, PNG, GIF.');
+            input.setCustomValidity('Niedozwolony format pliku. Dozwolone formaty: JPG, PNG, GIF, PDF.');
             input.value = '';
         } else {
             input.setCustomValidity('');
