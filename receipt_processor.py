@@ -16,12 +16,12 @@ from datetime import date
 import uuid
 import pdf2image
 import tempfile
-import easyocr
 import json
 import multiprocessing
 import os
 from db_logger import log_to_db
 from database import SessionLocal
+import pytesseract
 
 # Set environment variables for CUDA
 os.environ['CUDA_VISIBLE_DEVICES'] = ''  # Disable CUDA
@@ -93,10 +93,6 @@ class ReceiptProcessor:
         # Set multiprocessing start method to spawn
         import multiprocessing
         multiprocessing.set_start_method('spawn', force=True)
-        
-        # Initialize EasyOCR with CPU only
-        self.device = 'cpu'  # Force CPU usage
-        self.reader = easyocr.Reader(['pl'], gpu=False)  # Force CPU usage
         
         # Set environment variables for CUDA
         os.environ['CUDA_VISIBLE_DEVICES'] = ''  # Disable CUDA
@@ -225,15 +221,14 @@ class ReceiptProcessor:
 
     def _extract_text_from_image(self, image_path: Path) -> str:
         """
-        Extract text from image using EasyOCR
+        Extract text from image using pytesseract
         """
         try:
             logger.info(f"Starting OCR for image: {image_path}")
-            result = self.reader.readtext(str(image_path), detail=0, paragraph=True)
-            extracted_text = "\n".join(result)
+            text = pytesseract.image_to_string(Image.open(str(image_path)), lang='pol')
             logger.info(f"OCR completed successfully for {image_path}")
-            logger.debug(f"Extracted text:\n{extracted_text}")
-            return extracted_text
+            logger.debug(f"Extracted text:\n{text}")
+            return text
         except Exception as e:
             logger.error(f"Error during OCR for image {image_path}: {str(e)}", exc_info=True)
             raise HTTPException(

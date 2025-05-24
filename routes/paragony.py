@@ -10,7 +10,6 @@ import uuid
 from PIL import Image
 import io
 from ollama_client import ollama_generate
-import easyocr
 from models import Paragon, StatusParagonu, Produkt, KategoriaProduktu, LogBledow, PoziomLogu
 from database import get_session, SessionLocal
 import logging
