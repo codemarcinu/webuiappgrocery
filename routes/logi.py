@@ -195,7 +195,8 @@ def clear_logs(request: Request):
     response.set_cookie('flash_msg', 'Logi zostaly wyczyszczone i zarchiwizowane!')
     return response 
 
-@router.get("/logi/celery", response_class=PlainTextResponse)
+@router.get("/celery", response_class=PlainTextResponse)
+@router.get("/celery/", response_class=PlainTextResponse)
 async def get_celery_logs():
     log_path = os.path.join("logs", "celery.log")
     try:

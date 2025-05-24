@@ -363,6 +363,9 @@ Zwróć tylko i wyłącznie kompletny obiekt JSON, bez żadnych dodatkowych kome
     def _parse_ollama_response(self, response: str) -> Dict[str, Any]:
         """Parse Ollama's response into structured data"""
         try:
+            # Fix: handle dict response from Ollama
+            if isinstance(response, dict) and 'response' in response:
+                response = response['response']
             # Remove markdown code block if present
             if response.strip().startswith("```json"):
                 response = response.strip()[7:-3].strip()
