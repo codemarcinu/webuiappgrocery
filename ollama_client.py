@@ -2,6 +2,7 @@ from typing import Optional, Dict, Any
 from config import get_settings
 from logging_config import logger
 from ollama import AsyncClient, Client, RequestError, ResponseError
+from user_activity_logger import user_activity_logger
 import aiohttp
 import asyncio
 
@@ -11,16 +12,16 @@ class OllamaError(Exception):
     """Base exception for Ollama client errors"""
     pass
 
+class OllamaConnectionError(OllamaError):
+    """Exception raised when there are connection issues with Ollama"""
+    pass
+
 class OllamaTimeoutError(OllamaError):
     """Exception raised when Ollama request times out"""
     pass
 
-class OllamaConnectionError(OllamaError):
-    """Exception raised when connection to Ollama fails"""
-    pass
-
 class OllamaModelError(OllamaError):
-    """Exception raised when model is not available or invalid"""
+    """Exception raised when there are issues with the Ollama model"""
     pass
 
 async def verify_ollama_connection() -> bool:
@@ -48,8 +49,28 @@ async def verify_model_availability() -> bool:
     try:
         client = Client(host=settings.OLLAMA_API_URL)
         models = client.list()
-        return any(model['name'] == settings.OLLAMA_MODEL for model in models['models'])
+        is_available = any(model['name'] == settings.OLLAMA_MODEL for model in models['models'])
+        
+        user_activity_logger.log_ollama_operation(
+            "verify_model_availability",
+            {
+                "model": settings.OLLAMA_MODEL,
+                "available": is_available,
+                "available_models": [model['name'] for model in models['models']]
+            },
+            "success" if is_available else "model_not_found"
+        )
+        
+        return is_available
     except Exception as e:
+        user_activity_logger.log_error(
+            e,
+            {
+                "module": "ollama_client",
+                "function": "verify_model_availability",
+                "model": settings.OLLAMA_MODEL
+            }
+        )
         logger.error(f"Failed to verify model availability: {str(e)}")
         return False
 
@@ -60,33 +81,24 @@ async def ollama_generate(
     timeout: Optional[float] = None
 ) -> str:
     """
-    Generate text using Ollama API with enhanced error handling and verification
+    Generate text using Ollama model
     
     Args:
-        prompt: The prompt to send to Ollama
-        system: Optional system message
+        prompt: The input prompt
+        system: Optional system prompt
         stream: Whether to stream the response
-        timeout: Optional timeout in seconds (overrides config)
+        timeout: Optional timeout in seconds
         
     Returns:
-        Generated text response
+        str: Generated text
         
     Raises:
-        OllamaTimeoutError: If the request times out
-        OllamaConnectionError: If connection to Ollama fails
-        OllamaModelError: If the configured model is not available
-        OllamaError: For other Ollama-related errors
+        OllamaError: Base exception for Ollama errors
+        OllamaConnectionError: When connection fails
+        OllamaTimeoutError: When request times out
+        OllamaModelError: When model is not available or fails
     """
-    # Verify Ollama connection first
-    if not await verify_ollama_connection():
-        raise OllamaConnectionError("Ollama service is not accessible. Please check if Ollama is running.")
-    
-    # Verify model availability
-    if not await verify_model_availability():
-        raise OllamaModelError(f"Model '{settings.OLLAMA_MODEL}' is not available in Ollama. Please check your configuration.")
-    
-    # Use provided timeout or fall back to config
-    timeout_value = timeout if timeout is not None else settings.OLLAMA_TIMEOUT
+    timeout_value = timeout or settings.OLLAMA_TIMEOUT
     
     try:
         client = AsyncClient(
@@ -97,6 +109,18 @@ async def ollama_generate(
         logger.debug(f"Sending request to Ollama with timeout {timeout_value}s")
         logger.debug(f"Using model: {settings.OLLAMA_MODEL}")
         
+        user_activity_logger.log_ollama_operation(
+            "generate",
+            {
+                "model": settings.OLLAMA_MODEL,
+                "prompt_length": len(prompt),
+                "has_system_prompt": bool(system),
+                "stream": stream,
+                "timeout": timeout_value
+            },
+            "started"
+        )
+        
         response = await client.generate(
             model=settings.OLLAMA_MODEL,
             prompt=prompt,
@@ -104,22 +128,74 @@ async def ollama_generate(
             stream=stream
         )
         
+        user_activity_logger.log_ollama_operation(
+            "generate",
+            {
+                "model": settings.OLLAMA_MODEL,
+                "response_length": len(response.response),
+                "prompt_length": len(prompt)
+            },
+            "success"
+        )
+        
         return response.response
             
     except (RequestError, ResponseError) as e:
         if "timeout" in str(e).lower():
+            user_activity_logger.log_error(
+                e,
+                {
+                    "module": "ollama_client",
+                    "function": "ollama_generate",
+                    "error_type": "OllamaTimeoutError",
+                    "timeout": timeout_value
+                }
+            )
             logger.error(f"Ollama request timed out after {timeout_value}s: {str(e)}")
             raise OllamaTimeoutError(f"Request to Ollama timed out after {timeout_value}s")
         elif "connection" in str(e).lower():
+            user_activity_logger.log_error(
+                e,
+                {
+                    "module": "ollama_client",
+                    "function": "ollama_generate",
+                    "error_type": "OllamaConnectionError"
+                }
+            )
             logger.error(f"Failed to connect to Ollama: {str(e)}")
             raise OllamaConnectionError("Could not connect to Ollama service")
         elif "model" in str(e).lower():
+            user_activity_logger.log_error(
+                e,
+                {
+                    "module": "ollama_client",
+                    "function": "ollama_generate",
+                    "error_type": "OllamaModelError",
+                    "model": settings.OLLAMA_MODEL
+                }
+            )
             logger.error(f"Model error: {str(e)}")
             raise OllamaModelError(f"Error with model '{settings.OLLAMA_MODEL}': {str(e)}")
         else:
+            user_activity_logger.log_error(
+                e,
+                {
+                    "module": "ollama_client",
+                    "function": "ollama_generate",
+                    "error_type": "OllamaError"
+                }
+            )
             logger.error(f"Ollama API error: {str(e)}")
             raise OllamaError(f"Ollama API error: {str(e)}")
             
     except Exception as e:
+        user_activity_logger.log_error(
+            e,
+            {
+                "module": "ollama_client",
+                "function": "ollama_generate",
+                "error_type": "UnexpectedError"
+            }
+        )
         logger.error(f"Unexpected error in Ollama request: {str(e)}")
         raise OllamaError(f"Unexpected error: {str(e)}") 

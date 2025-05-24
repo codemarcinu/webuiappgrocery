@@ -9,6 +9,7 @@ from decimal import Decimal
 from product_mapper import ProductMapper
 from ollama_client import OllamaError, OllamaTimeoutError, OllamaConnectionError, OllamaModelError
 from config import get_settings
+from user_activity_logger import user_activity_logger
 import json
 import asyncio
 
@@ -38,6 +39,10 @@ def process_receipt_task(self, paragon_id: int):
         paragon = db.query(Paragon).get(paragon_id)
         if not paragon:
             logger.error(f"Paragon {paragon_id} not found")
+            user_activity_logger.log_error(
+                Exception(f"Paragon {paragon_id} not found"),
+                {"module": "tasks", "function": "process_receipt_task", "paragon_id": paragon_id}
+            )
             return
         
         # Update status to OCR processing
@@ -45,11 +50,22 @@ def process_receipt_task(self, paragon_id: int):
         paragon.status_szczegolowy = "Rozpoczęto przetwarzanie OCR..."
         db.commit()
         logger.info(f"Rozpoczęto OCR dla paragonu {paragon_id}")
+        user_activity_logger.log_receipt_processing(
+            paragon_id,
+            "OCR_START",
+            {"status": "started", "file_path": paragon.sciezka_pliku_na_serwerze}
+        )
         
         try:
             # Process the receipt using ReceiptProcessor (now async)
             paragon.status_szczegolowy = "Wykonywanie OCR i ekstrakcja tekstu..."
             db.commit()
+            user_activity_logger.log_receipt_processing(
+                paragon_id,
+                "OCR_IN_PROGRESS",
+                {"status": "processing", "stage": "text_extraction"}
+            )
+            
             result = asyncio.run(receipt_processor.process_receipt(Path(paragon.sciezka_pliku_na_serwerze)))
             
             # Update status to AI processing
@@ -57,6 +73,11 @@ def process_receipt_task(self, paragon_id: int):
             paragon.status_szczegolowy = "Strukturyzacja danych z OCR zakończona, przygotowywanie produktów..."
             db.commit()
             logger.info(f"OCR zakończony dla paragonu {paragon_id}, rozpoczynam analizę AI")
+            user_activity_logger.log_receipt_processing(
+                paragon_id,
+                "OCR_COMPLETE",
+                {"status": "completed", "items_found": len(result.get("items", []))}
+            )
             
             # Clear existing products for this receipt
             existing_products = db.query(Produkt).filter(Produkt.paragon_id == paragon.id).all()
@@ -120,6 +141,16 @@ def process_receipt_task(self, paragon_id: int):
             paragon.data_przetworzenia = datetime.now()
             db.commit()
             logger.info(f"Paragon {paragon_id} przetworzony pomyślnie")
+            user_activity_logger.log_receipt_processing(
+                paragon_id,
+                "PROCESSING_COMPLETE",
+                {
+                    "status": "success",
+                    "products_count": len(all_new_products),
+                    "store_name": result.get("store_name"),
+                    "total_amount": str(result.get("total_amount"))
+                }
+            )
             
             return {"status": "success", "paragon_id": paragon_id, "message": "Receipt processed successfully with local OCR and LLM"}
             
@@ -131,6 +162,15 @@ def process_receipt_task(self, paragon_id: int):
             paragon.data_przetworzenia = datetime.now()
             db.commit()
             logger.error(f"Ollama connection error for receipt {paragon_id}: {str(e)}", exc_info=True)
+            user_activity_logger.log_error(
+                e,
+                {
+                    "module": "tasks",
+                    "function": "process_receipt_task",
+                    "paragon_id": paragon_id,
+                    "error_type": "OllamaConnectionError"
+                }
+            )
             raise
             
         except OllamaModelError as e:
@@ -141,6 +181,15 @@ def process_receipt_task(self, paragon_id: int):
             paragon.data_przetworzenia = datetime.now()
             db.commit()
             logger.error(f"Ollama model error for receipt {paragon_id}: {str(e)}", exc_info=True)
+            user_activity_logger.log_error(
+                e,
+                {
+                    "module": "tasks",
+                    "function": "process_receipt_task",
+                    "paragon_id": paragon_id,
+                    "error_type": "OllamaModelError"
+                }
+            )
             raise
             
         except OllamaTimeoutError as e:
@@ -151,6 +200,15 @@ def process_receipt_task(self, paragon_id: int):
             paragon.data_przetworzenia = datetime.now()
             db.commit()
             logger.error(f"Ollama timeout error for receipt {paragon_id}: {str(e)}", exc_info=True)
+            user_activity_logger.log_error(
+                e,
+                {
+                    "module": "tasks",
+                    "function": "process_receipt_task",
+                    "paragon_id": paragon_id,
+                    "error_type": "OllamaTimeoutError"
+                }
+            )
             raise
             
         except OllamaError as e:
@@ -161,6 +219,15 @@ def process_receipt_task(self, paragon_id: int):
             paragon.data_przetworzenia = datetime.now()
             db.commit()
             logger.error(f"Ollama error for receipt {paragon_id}: {str(e)}", exc_info=True)
+            user_activity_logger.log_error(
+                e,
+                {
+                    "module": "tasks",
+                    "function": "process_receipt_task",
+                    "paragon_id": paragon_id,
+                    "error_type": "OllamaError"
+                }
+            )
             raise
             
         except Exception as e:
@@ -171,10 +238,28 @@ def process_receipt_task(self, paragon_id: int):
             paragon.data_przetworzenia = datetime.now()
             db.commit()
             logger.error(f"Error processing receipt {paragon_id}: {str(e)}", exc_info=True)
+            user_activity_logger.log_error(
+                e,
+                {
+                    "module": "tasks",
+                    "function": "process_receipt_task",
+                    "paragon_id": paragon_id,
+                    "error_type": "UnexpectedError"
+                }
+            )
             raise
             
     except Exception as e:
         logger.error(f"Unexpected error in Celery task: {str(e)}", exc_info=True)
+        user_activity_logger.log_error(
+            e,
+            {
+                "module": "tasks",
+                "function": "process_receipt_task",
+                "paragon_id": paragon_id,
+                "error_type": "CeleryTaskError"
+            }
+        )
         raise
     finally:
         db.close() 
